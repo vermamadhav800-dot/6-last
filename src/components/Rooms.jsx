@@ -11,8 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 
-export default function Rooms({ appState, setAppState }) {
-  const { rooms, tenants } = appState;
+export default function Rooms({ appState: activeProperty, setAppState: setOwnerState }) {
+  const { rooms = [], tenants = [] } = activeProperty;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
   const [roomToDelete, setRoomToDelete] = useState(null);
@@ -43,21 +43,37 @@ export default function Rooms({ appState, setAppState }) {
       rent: Number(formData.get('rent')),
     };
 
-    setAppState(prev => {
+    setOwnerState(prevOwnerState => {
+        const newOwnerState = { ...prevOwnerState };
+        const propertyIndex = newOwnerState.properties.findIndex(p => p.id === activeProperty.id);
+
+        if (propertyIndex === -1) {
+            toast({ variant: "destructive", title: "Error", description: "Could not find the property to update." });
+            return prevOwnerState;
+        }
+
+        const currentProperty = newOwnerState.properties[propertyIndex];
         let updatedRooms;
-        let updatedTenants = prev.tenants;
+        let updatedTenants = currentProperty.tenants;
 
         if (editingRoom) {
-            updatedRooms = prev.rooms.map(r => r.id === editingRoom.id ? { ...r, ...roomData } : r);
-            updatedTenants = recalculateRentForRoom(editingRoom.number, roomData.rent, prev.tenants);
+            updatedRooms = currentProperty.rooms.map(r => r.id === editingRoom.id ? { ...r, ...roomData } : r);
+            updatedTenants = recalculateRentForRoom(editingRoom.number, roomData.rent, currentProperty.tenants);
             toast({ title: "Success", description: "Room updated successfully." });
         } else {
             const newRoom = { ...roomData, id: Date.now().toString() };
-            updatedRooms = [...prev.rooms, newRoom];
+            const currentRooms = currentProperty.rooms || [];
+            updatedRooms = [...currentRooms, newRoom];
             toast({ title: "Success", description: "New room added." });
         }
+        
+        newOwnerState.properties[propertyIndex] = {
+            ...currentProperty,
+            rooms: updatedRooms,
+            tenants: updatedTenants,
+        };
 
-        return { ...prev, rooms: updatedRooms, tenants: updatedTenants };
+        return newOwnerState;
     });
 
     setIsModalOpen(false);
@@ -74,10 +90,27 @@ export default function Rooms({ appState, setAppState }) {
 
   const handleDeleteRoom = () => {
     if (!roomToDelete) return;
-    setAppState(prev => ({
-      ...prev,
-      rooms: prev.rooms.filter(r => r.id !== roomToDelete.id),
-    }));
+
+    setOwnerState(prevOwnerState => {
+        const newOwnerState = { ...prevOwnerState };
+        const propertyIndex = newOwnerState.properties.findIndex(p => p.id === activeProperty.id);
+
+        if (propertyIndex === -1) {
+            toast({ variant: "destructive", title: "Error", description: "Could not find the property to delete the room from." });
+            return prevOwnerState;
+        }
+
+        const currentProperty = newOwnerState.properties[propertyIndex];
+        const updatedRooms = currentProperty.rooms.filter(r => r.id !== roomToDelete.id);
+
+        newOwnerState.properties[propertyIndex] = {
+            ...currentProperty,
+            rooms: updatedRooms,
+        };
+
+        return newOwnerState;
+    });
+
     toast({ title: "Success", description: "Room deleted." });
     setRoomToDelete(null);
   };

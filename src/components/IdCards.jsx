@@ -39,7 +39,7 @@ const IdCardDialog = ({ isOpen, setIsOpen, tenant, ownerState }) => {
                     <TenantIdCard 
                         tenant={tenant} 
                         ownerState={ownerState} 
-                        propertyName={ownerState.defaults.propertyName}
+                        propertyName={ownerState.defaults?.propertyName}
                     />
                 </div>
                 <DialogFooter className="sm:justify-end gap-2">
@@ -51,13 +51,14 @@ const IdCardDialog = ({ isOpen, setIsOpen, tenant, ownerState }) => {
     );
 };
 
-export default function IdCards({ appState, setAppState }) {
-    const { tenants, MOCK_USER_INITIAL, defaults } = appState;
+export default function IdCards({ appState: activeProperty, setAppState: setOwnerState, ownerState }) {
+    const { tenants = [] } = activeProperty;
     const [isIdCardModalOpen, setIsIdCardModalOpen] = useState(false);
     const [selectedTenant, setSelectedTenant] = useState(null);
 
-    // Ensure all tenants have a tenantId. This is a crucial backfill step.
     useEffect(() => {
+        if (!tenants || tenants.length === 0) return;
+
         let needsUpdate = false;
         const updatedTenants = tenants.map(tenant => {
             if (!tenant.tenantId) {
@@ -68,9 +69,20 @@ export default function IdCards({ appState, setAppState }) {
         });
 
         if (needsUpdate) {
-            setAppState(prev => ({ ...prev, tenants: updatedTenants }));
+            setOwnerState(prevOwnerState => {
+                const newOwnerState = { ...prevOwnerState };
+                const propertyIndex = newOwnerState.properties.findIndex(p => p.id === activeProperty.id);
+
+                if (propertyIndex !== -1) {
+                    newOwnerState.properties[propertyIndex] = {
+                        ...newOwnerState.properties[propertyIndex],
+                        tenants: updatedTenants,
+                    };
+                }
+                return newOwnerState;
+            });
         }
-    }, [tenants, setAppState]);
+    }, [tenants, setOwnerState, activeProperty.id]);
 
     const handleGenerateIdCard = (tenant) => {
         setSelectedTenant(tenant);
@@ -126,7 +138,7 @@ export default function IdCards({ appState, setAppState }) {
                     isOpen={isIdCardModalOpen} 
                     setIsOpen={setIsIdCardModalOpen} 
                     tenant={selectedTenant} 
-                    ownerState={{MOCK_USER_INITIAL, defaults}}
+                    ownerState={ownerState}
                 />
             }
         </div>

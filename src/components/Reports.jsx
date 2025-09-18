@@ -17,12 +17,12 @@ import html2canvas from 'html2canvas';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
-export default function Reports({ appState, setAppState, setActiveTab }) {
-  const { tenants, payments, rooms, expenses = [], defaults } = appState;
+export default function Reports({ appState, setAppState, setActiveTab, ownerState }) {
+  const { tenants, payments, rooms, expenses = [] } = appState;
   const { toast } = useToast();
   const router = useRouter();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const isPro = defaults.subscriptionPlan === 'pro' || defaults.subscriptionPlan === 'business';
+  const isPro = ownerState.defaults?.subscriptionPlan === 'pro' || ownerState.defaults?.subscriptionPlan === 'business';
 
   const thisMonth = new Date().getMonth();
   const thisYear = new Date().getFullYear();
