@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { useAppTheme } from '@/contexts/ThemeContext';
-import PaymentGateway from './PaymentGateway';
+import CreditCardGateway from './CreditCardGateway';
 import UpgradeSuccessAnimation from './UpgradeSuccessAnimation';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -461,9 +461,9 @@ export default function Upgrade({ appState, setAppState, onUpgradeSuccess }) {
                 </div>
 
                  {selectedPlan && (
-                    <PaymentGateway
+                    <CreditCardGateway
                         isOpen={showPayment}
-                        onOpenChange={() => setShowPayment(false)}
+                        onOpenChange={setShowPayment}
                         plan={selectedPlan}
                         onPaymentSuccess={() => handleUpgradeSuccess(selectedPlan)}
                     />
