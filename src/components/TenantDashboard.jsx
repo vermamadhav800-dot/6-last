@@ -24,12 +24,12 @@ import useSound from '@/hooks/useSound';
 import TenantDocuments from './TenantDocuments';
 import TenantSettings from './TenantSettings';
 import TenantProfile from './TenantProfile';
-import AdvancedPayment from './AdvancedPayment';
+import PaymentPortal from './PaymentPortal';
 import PremiumFeature from './PremiumFeature';
 import Upgrade from './Upgrade';
 import { useAppTheme } from '@/contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import ComingSoon from './ComingSoon';
+import TenantRequests from './TenantRequests'; // Import the new component
 import { Badge } from '@/components/ui/badge';
 
 const ProfessionalTenantDashboard = ({ tenant, ownerState, setAppState, ownerId, property, onLogout }) => {
@@ -199,9 +199,9 @@ const ProfessionalTenantDashboard = ({ tenant, ownerState, setAppState, ownerId,
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview': return <OverviewTab />;
-      case 'payments': return <AdvancedPayment tenant={tenant} ownerState={property} setOwnerState={updateOwnerState} currentPlan={tenantPlan} />;
+      case 'payments': return <PaymentPortal tenant={tenant} ownerState={ownerState} setOwnerState={setAppState} ownerId={ownerId} />;
       case 'documents': return <TenantDocuments tenant={tenant} />;
-      case 'requests': return <ComingSoon title="Requests" description="This feature is under development. Soon you'll be able to submit maintenance requests here." />;
+      case 'requests': return <TenantRequests tenant={tenant} property={property} setAppState={setAppState} ownerId={ownerId} />;
       case 'profile': return <TenantProfile tenant={tenant} ownerState={property} setOwnerState={updateOwnerState} />;
       case 'settings': return <TenantSettings tenant={tenant} setOwnerState={updateOwnerState} ownerState={property} />;
       default: return <OverviewTab />;

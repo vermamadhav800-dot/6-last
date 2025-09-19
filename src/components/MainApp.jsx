@@ -29,9 +29,10 @@ import {
   User,
   Building,
   ChevronDown,
+  Mail
 } from "lucide-react";
 import AppLogo from "@/components/AppLogo";
-import ProfessionalDashboard from "@/components/Dashboard";
+import ProfessionalDashboard from "@/components/ProfessionalDashboard";
 import Tenants from "@/components/Tenants";
 import Rooms from "@/components/Rooms";
 import Payments from "@/components/Payments";
@@ -70,6 +71,8 @@ import IdCards from "./IdCards";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import OwnerProfile from "./OwnerProfile";
 import Properties from "./Properties";
+import PendingApprovals from "./PendingApprovals";
+import MaintenanceRequests from "./MaintenanceRequests"; // Import the new component
 
 
 const TABS = [
@@ -81,6 +84,7 @@ const TABS = [
   { id: "rooms", label: "Rooms", icon: DoorOpen, plan: 'standard', group: 'management' },
   { id: "payments", label: "Payments", icon: CreditCard, plan: 'standard', group: 'management' },
   { id: "requests", label: "Requests", icon: Wrench, plan: 'standard', group: 'operations' },
+  { id: "approvals", label: "Approvals", icon: Mail, plan: 'standard', group: 'operations' },
   { id: "notices", label: "Notices", icon: Megaphone, plan: 'standard', group: 'operations' },
   { id: "insights", label: "Insights", icon: TrendingUp, plan: 'pro', group: 'analytics' },
   { id: "expenses", label: "Expenses", icon: Wallet, plan: 'pro', group: 'analytics' },
@@ -93,14 +97,14 @@ const TABS = [
 const TAB_GROUPS = ['main', 'management', 'operations', 'analytics'];
 
 
-function AppContent({ activeTab, setActiveTab, ownerState, setOwnerState, user, activeProperty, setActivePropertyId }) {
+function AppContent({ activeTab, setActiveTab, ownerState, setOwnerState, user, activeProperty, setActivePropertyId, ownerId }) {
   const { isMobile } = useSidebar();
   const { setTheme, theme } = useTheme();
   const { theme: appTheme } = useAppTheme();
   
   const renderTabContent = () => {
     // Pass activeProperty to all components that need it
-    const props = { appState: activeProperty, setAppState: setOwnerState, user, setActiveTab, ownerState };
+    const props = { appState: ownerState, setAppState: setOwnerState, user, setActiveTab, ownerState, ownerId, activeProperty };
     switch (activeTab) {
       case "dashboard":
         return <ProfessionalDashboard {...props} />;
@@ -119,7 +123,9 @@ function AppContent({ activeTab, setActiveTab, ownerState, setOwnerState, user, 
       case "payments":
         return <Payments {...props} />;
       case "requests":
-        return <Approvals {...props} />;
+        return <MaintenanceRequests {...props} />;
+      case "approvals":
+        return <PendingApprovals {...props} />;
       case "electricity":
         return <Electricity {...props} />;
       case "expenses":
@@ -221,13 +227,10 @@ export default function MainApp({ onLogout, user, ownerState, setAppState }) {
   const activeProperty = ownerState.properties?.find(p => p.id === ownerState.activePropertyId) || ownerState.properties?.[0];
 
   if (!activeProperty) {
-    // This can happen if the last active property was deleted.
-    // Fallback to the first property or handle empty state.
     if (ownerState.properties?.length > 0) {
         setActivePropertyId(ownerState.properties[0].id);
     }
-    // If there are no properties, the profile setup screen will be shown.
-    return null; // Or a loading/empty state
+    return null; 
   }
 
   const setOwnerState = (updater) => {
@@ -240,10 +243,9 @@ export default function MainApp({ onLogout, user, ownerState, setAppState }) {
     });
   };
 
-  const pendingApprovalsCount = (activeProperty.pendingApprovals || []).length;
+  const pendingApprovalsCount = (ownerState.pendingApprovals || []).filter(p => p.type === 'payment').length;
   const pendingMaintenanceCount = (activeProperty.maintenanceRequests || []).filter(r => r.status === 'Pending').length;
-  const pendingUpdateRequestsCount = (activeProperty.updateRequests || []).length;
-  const totalPendingRequests = pendingApprovalsCount + pendingMaintenanceCount + pendingUpdateRequestsCount;
+  const totalPendingRequests = pendingMaintenanceCount;
 
   const currentPlan = ownerState.defaults?.subscriptionPlan || 'standard';
   const isPro = currentPlan === 'pro' || currentPlan === 'business';
@@ -311,6 +313,7 @@ export default function MainApp({ onLogout, user, ownerState, setAppState }) {
                     const requiredPlanRank = planOrder[tab.plan] || 1;
                     const isLocked = currentPlanRank < requiredPlanRank;
                     const hasPendingRequests = tab.id === 'requests' && totalPendingRequests > 0;
+                    const hasPendingApprovals = tab.id === 'approvals' && pendingApprovalsCount > 0;
                     
                     return (
                       <SidebarMenuItem key={tab.id}>
@@ -322,7 +325,7 @@ export default function MainApp({ onLogout, user, ownerState, setAppState }) {
                           className={cn(
                             "relative group transition-all duration-300 rounded-xl mx-1",
                             isLocked && "cursor-not-allowed opacity-50",
-                            hasPendingRequests && "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white font-semibold border border-indigo-500/30",
+                            (hasPendingRequests || hasPendingApprovals) && "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white font-semibold border border-indigo-500/30",
                             activeTab === tab.id && !isLocked && "bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-white shadow-lg shadow-indigo-500/25 border border-indigo-500/40",
                             !activeTab === tab.id && !isLocked && "hover:bg-white/5 hover:text-white text-slate-300"
                           )}
@@ -339,9 +342,15 @@ export default function MainApp({ onLogout, user, ownerState, setAppState }) {
                             )} />
                             <span className="font-medium">{tab.label}</span>
                             
-                            {tab.id === 'requests' && totalPendingRequests > 0 && (
+                            {hasPendingRequests && (
                               <span className="ml-auto bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-lg shadow-red-500/25 animate-pulse">
                                 {totalPendingRequests}
+                              </span>
+                            )}
+                            
+                            {hasPendingApprovals && (
+                              <span className="ml-auto bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-lg shadow-red-500/25 animate-pulse">
+                                {pendingApprovalsCount}
                               </span>
                             )}
                             
@@ -466,10 +475,9 @@ export default function MainApp({ onLogout, user, ownerState, setAppState }) {
           user={user}
           activeProperty={activeProperty}
           setActivePropertyId={setActivePropertyId}
+          ownerId={user.username}
         />
       </div>
     </SidebarProvider>
   );
 }
-
-    
