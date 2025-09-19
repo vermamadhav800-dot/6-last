@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, User, Bot, Info, CornerDownLeft, BrainCircuit, Zap, Star, Crown, Wrench, Megaphone } from 'lucide-react';
+import { Sparkles, Send, User, Bot, Info, CornerDownLeft, BrainCircuit, Zap, Star, Crown, Wrench, Megaphone, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -13,133 +13,76 @@ import { useAppTheme } from "@/contexts/ThemeContext";
 
 // --- Maddy AI's Brain - Final Deep Knowledge Base ---
 const knowledgeBase = {
-    // --- General & Meta Topics ---
     greetings: {
         keywords: ["hello", "hi", "hey", "maddy", "yo", "start"],
-        response: () => `Hello! I'm Maddy AI, your dedicated EstateFlow assistant. My purpose is to provide you with clear, step-by-step guidance for any feature in this app. How can I help you today?`,
+        response: () => `Hello! I'm Maddy AI. Below is a list of frequently asked questions. Click one to get an instant answer, or type your own question in the box at the bottom.`,
     },
-    help: {
-        keywords: ["help", "support", "assistance", "guide", "what can you do"],
-        response: () => `I can provide detailed guidance on every feature within EstateFlow. For example, you could ask me:
-
-• "How do I add a tenant and set their rent?"
-• "Explain how to handle a maintenance request."
-• "What is the best way to backup all my data?"
-
-I'm ready to help. Just ask your question in simple terms.`,
-    },
-    thanks: {
-        keywords: ["thanks", "thank you", "appreciated", "great", "perfect", "awesome"],
-        response: () => `You're most welcome! I'm glad I could provide a clear and helpful answer. Is there anything else you need assistance with?`,
-    },
-    identity: {
-        keywords: ["who are you", "what is your name", "what are you", "purpose", "your brain"],
-        response: () => `I am Maddy AI. Think of me as a friendly expert on the EstateFlow application. My brain is built on a deep knowledge base of every feature, allowing me to provide instant and accurate guidance to make your life easier.`,
-    },
-
-    // --- Standard Plan Features ---
-    dashboard: {
-        keywords: ["dashboard", "main screen", "overview", "home page", "analytics", "quick look", "metrics"],
-        response: () => `The **Dashboard** is your command center. It gives you a quick, visual summary of your most important metrics:
-
-• **Total Tenants:** The number of active residents across your property.
-• **Occupancy Rate:** The percentage of your rooms that are currently filled.
-• **Total Revenue (Last 6 Months):** A snapshot of your income.
-• **Total Dues:** The total outstanding rent amount you need to collect.`,
-    },
+    help: { keywords: ["help", "support", "assistance"], response: () => `You can either click a question from the list below or type your own question in the input box. I can explain any feature of the EstateFlow app.` },
+    thanks: { keywords: ["thanks", "thank you"], response: () => `You're welcome! I'm here to help. Feel free to ask another question.` },
+    identity: { keywords: ["who are you", "what are you"], response: () => `I am Maddy AI, a specialized assistant for the EstateFlow application. My brain contains detailed, step-by-step instructions for every feature.` },
+    dashboard: { keywords: ["dashboard", "overview", "home page"], response: () => `The **Dashboard** is your command center. It gives you a quick summary of your most important metrics like **Total Tenants**, **Occupancy Rate**, and **Total Dues**.` },
     tenants: {
-        keywords: ["tenant", "tenants", "resident", "add tenant", "customer", "profile", "aadhaar", "tenant list", "update tenant", "edit tenant"],
+        keywords: ["tenant", "resident", "add tenant", "edit tenant"],
         response: (specifics) => {
-            let base = `The **Tenants** section is where you manage all your residents.`;
-            if (specifics.includes("add") || specifics.includes("new")) {
-                base += `\n\nHere’s how to add a new tenant, step-by-step:\n1. From the side menu, click on **"Tenants"**.\n2. Click the blue **"Add New Tenant"** button.\n3. A form will open. Fill in the tenant's essential details like their **Full Name**, **Contact Info**, **Move-in Date**, and which **Room** they will occupy.\n4. You should also enter their **Aadhaar Number** for your records.`;
-            } else if (specifics.includes("edit") || specifics.includes("update")) {
-                base += `\n\nTo update a tenant's information:\n1. Go to the **Tenants** section.\n2. Find the tenant in the list and click on their name.\n3. This will take you to their detailed profile page where you can edit their information.`;
-            } else {
-                base += `\n\nHere you can see a full list of your tenants, add new ones, and click on any tenant to view or update their detailed profile, including payment history and personal information.`;
-            }
-            return base;
-        },
+            if (specifics.includes("add")) return `Here’s how to add a new tenant:\n1. Go to the **"Tenants"** tab.\n2. Click the **"Add New Tenant"** button.\n3. Fill in their details like name, contact info, move-in date, and assign them to a room.`;
+            if (specifics.includes("edit")) return `To edit a tenant's information:\n1. Go to the **"Tenants"** tab.\n2. Click on the tenant's name in the list.\n3. This will open their profile where you can update their details.`;
+            return `The **Tenants** section is where you manage all your residents. You can add new tenants, see a full list of existing tenants, and edit their profiles.`;
+        }
     },
     rooms: {
-        keywords: ["room", "rooms", "property", "add room", "space", "unit", "rent sharing", "edit room", "update rent"],
+        keywords: ["room", "rent sharing", "add room"],
         response: (specifics) => {
-            let base = `The **Rooms** section is where you define and manage all the rentable units in your property.`;
-            if(specifics.includes("add")){
-                base += `\n\nTo add a new room:\n1. Click on **"Rooms"** in the menu.\n2. Click the **"Add New Room"** button.\n3. Set the room's name (e.g., "Room 101") and its total monthly rent amount.`;
-            } else if (specifics.includes("sharing")){
-                base += `\n\n**Rent Sharing** is a very useful feature. When you create or edit a room, you can enable 'Rent Sharing'. If enabled, the room's total rent is automatically and equally divided among all the tenants living in it. For example, if a room's rent is ₹10,000 and two tenants live there, each will be billed ₹5,000.`;
-            } else {
-                 base += `\n\nThis is the foundation for tracking your property's occupancy and calculating rent for each tenant accurately.`;
-            }
-            return base;
-        },
+            if (specifics.includes("add")) return `To add a new room:\n1. Go to the **"Rooms"** tab.\n2. Click **"Add New Room"**.\n3. Set the room's name and its total monthly rent.`;
+            if (specifics.includes("sharing")) return `**Rent Sharing** is a key feature. When editing a room, if you enable 'Rent Sharing', the total rent is automatically and equally divided among all tenants assigned to that room.`;
+            return `The **Rooms** section is where you define every rentable unit in your property, including its rent.`;
+        }
     },
     payments: {
-        keywords: ["payment", "payments", "rent", "log payment", "invoice", "fee", "collection", "approve payment", "due", "bill", "charge"],
+        keywords: ["payment", "rent", "log payment", "approve payment"],
         response: (specifics) => {
-            let base = `The **Payments** and **Approvals** sections are where you handle all money-related tasks.`;
-            if(specifics.includes("log")){
-                base += `\n\nTo manually record a payment you've received (e.g., in cash or bank transfer):\n1. Navigate to the **Payments** tab.\n2. Click **"Log a Payment"**.\n3. Select the tenant, enter the amount, and the date. This updates their balance.`
-            } else if(specifics.includes("approve")){
-                base += `\n\nWhen tenants use their portal to notify you they've paid, you must approve it:\n1. Go to the **Approvals** tab (you'll see a red dot if there are pending approvals).\n2. Review the pending payment details.\n3. Click **"Approve"** to formally record the payment. It will then appear in your financial records.`
-            } else {
-                base += `\n\nYou can manually log payments you receive, or approve payment notifications sent by tenants through their portal. This keeps your financial records accurate.`;
-            }
-            return base;
-        },
-    },
-    maintenance: {
-        keywords: ["maintenance", "requests", "complaint", "fix", "issue", "repair", "plumbing", "electrical"],
-        response: () => `The **Requests** tab is where you manage maintenance issues reported by tenants.\n\nHere is the process:\n1. When a tenant submits a maintenance request (e.g., for a broken faucet), it appears in this list.\n2. You can view the details of the request.\n3. After the issue has been resolved, you can update its status to **"Completed"** to keep everything organized.`
-    },
-    notices: {
-        keywords: ["notice", "notices", "announcement", "board", "broadcast", "message all"],
-        response: () => `The **Notices** tab allows you to communicate with all your tenants at once.\n\nTo post a new announcement:\n1. Navigate to the **Notices** tab.\n2. Click **"Post a Notice"**.\n3. Write your message and post it.\nThis notice will then be visible to all tenants in their portal, which is perfect for general announcements like maintenance schedules or holiday greetings.`
-    },
-
-    // --- Pro & Business Plan Features ---
-    expenses: {
-        keywords: ["expense", "expenses", "cost", "log expense", "spending", "outgoings", "track costs"],
-        response: () => `Tracking your expenses is a key **Pro feature** (<Star className="inline h-4 w-4" />) for understanding your true profitability.\n\nIn the **Expenses** section, you can:\n1. **Log Every Cost:** Click "Log an Expense" to record any spending, from maintenance and repairs to salaries and utility bills.\n2. **Categorize Spending:** Assign a category to each expense to see where your money is going.\n3. **Analyze Trends:** This data is automatically used in the **Insights** tab to give you a clear financial picture.`,
-    },
-    insights: {
-        keywords: ["insights", "financial", "profit", "loss", "charts", "analytics", "performance"],
-        response: () => `The **Insights** tab is an advanced analytics dashboard, exclusive to the **Pro plan** (<Star className="inline h-4 w-4" />) and above.\n\nIt helps you understand your business performance with:\n• **12-Month Financial Trends:** See your Revenue, Expenses, and Profit over the last year in an easy-to-read chart.\n• **Expense Breakdown:** A pie chart shows you exactly which categories are costing you the most money.`,
-    },
-    reports: {
-        keywords: ["report", "reports", "csv", "export", "pdf", "download", "backup", "json", "data backup"],
-        response: (specifics) => {
-            let base = `The **Reports** section is a powerful **Pro feature** (<Star className="inline h-4 w-4" />) for exporting your data.`;
-            if(specifics.includes("csv") || specifics.includes("pdf")){
-                base += `\n\nYou can generate a professional **Rent Roll report** for any month. This report lists all tenants, their rooms, rent amounts, and payment status. You can download it as a **PDF** for printing or a **CSV** file for use in spreadsheet software like Excel.`;
-            } else if (specifics.includes("backup") || specifics.includes("json")){
-                base += `\n\nFor maximum security, you can use the **Full Data Backup** feature. This lets you download your entire application data (tenants, payments, expenses, etc.) into a single **JSON file**. This is the best way to keep a personal copy of your records.`;
-            } else {
-                base += `\n\nYou can export monthly rent rolls as PDF/CSV files or perform a full backup of all your app data into a single JSON file.`;
-            }
-            return base;
-        },
-    },
-    documents: {
-        keywords: ["document", "documents", "file", "storage", "lease", "agreement", "upload", "tenant photo"],
-        response: () => `Secure Document Management is a premium feature on the **Business plan** (<Crown className="inline h-4 w-4" />).\n\nIt allows you to upload and securely store critical files for each tenant:\n• **Profile Photo:** Essential for ID cards and quick identification.\n• **Aadhaar Card:** For official identity verification.\n• **Lease Agreement:** To keep legally binding documents safe and accessible.\n\nAll uploaded files can be easily viewed in the central **Documents** tab.`,
-    },
-    upgrade: {
-        keywords: ["upgrade", "pro", "business", "plan", 'subscription', "premium", "features", "pricing"],
-        response: () => `Upgrading your plan in the **Upgrade** tab unlocks powerful features to professionalize your operation.\n\n<Star className="inline h-4 w-4 text-blue-400" /> **Pro Plan Benefits:** Gives you financial control with **Expense Tracking**, **Financial Insights**, and advanced **Reports** (PDF/CSV/JSON backup).\n\n<Crown className="inline h-4 w-4 text-purple-400" /> **Business Plan Benefits:** Includes all Pro features, plus a secure system for **Document Management** to store leases, IDs, and photos.`,
-    },
-
-    // --- Fallback ---
-    fallback: {
-        keywords: [],
-        response: (userInput) => {
-            const suggestions = ["how to add a new tenant", "explain the electricity bill feature", "what do I get if I upgrade to Pro", "how do I backup my data"];
-            const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
-            return `I apologize, my knowledge is highly specialized for the EstateFlow application, and I couldn't find a direct answer for your query. \n\nCould you please try rephrasing? For example, you could ask something simpler like, "${randomSuggestion}?"`;
+            if (specifics.includes("log")) return `To manually record a payment you've received:\n1. Go to the **"Payments"** tab.\n2. Click **"Log a Payment"**.\n3. Select the tenant, enter the amount, and the date.`;
+            if (specifics.includes("approve")) return `When a tenant pays and notifies you via their portal, it appears in the **"Approvals"** tab. Just review the details and click **"Approve"** to confirm it.`;
+            return `You handle all financial transactions in the **Payments** and **Approvals** sections.`;
         }
-    }
+    },
+    electricity: { keywords: ["electricity", "bill", "utility"], response: () => `The **Electricity** feature helps you bill for utilities. Go to the **Electricity** tab, click "Add Reading", enter the details, and apply it to a room. The cost will be automatically divided among that room's tenants and added to their dues.` },
+    maintenance: { keywords: ["maintenance", "requests", "complaint"], response: () => `When a tenant submits a maintenance request (e.g., for a repair), it appears in the **"Requests"** tab. You can view the details and mark it as "Completed" once the issue is resolved.` },
+    notices: { keywords: ["notice", "announcement", "board"], response: () => `Use the **Notices** tab to send a message to all tenants at once. Click **"Post a Notice"**, write your message, and it will appear on the notice board in every tenant's portal.` },
+    expenses: { keywords: ["expense", "cost", "spending"], response: () => `Expense tracking is a **Pro feature** (<Star className="inline h-4 w-4" />). In the **Expenses** section, you can log all your property-related costs (like repairs or salaries) to get a clear picture of your outgoings.` },
+    insights: { keywords: ["insights", "financial", "charts"], response: () => `The **Insights** tab is a **Pro feature** (<Star className="inline h-4 w-4" />) that gives you a deep financial analysis with 12-month trend charts for Revenue, Expenses, and Profit.` },
+    reports: {
+        keywords: ["report", "csv", "pdf", "backup", "json"],
+        response: (specifics) => {
+            if (specifics.includes("pdf")) return `You can download a monthly **Rent Roll report** in **PDF** or **CSV** format from the **Reports** tab. This is a **Pro feature** (<Star className="inline h-4 w-4" />).`;
+            if (specifics.includes("backup")) return `For maximum security, use the **Full Data Backup** feature in the **Reports** tab. It exports all your data into a single JSON file. This is a **Pro feature** (<Star className="inline h-4 w-4" />).`;
+            return `The **Reports** section is a **Pro feature** (<Star className="inline h-4 w-4" />) for exporting your data as PDF/CSV reports or creating a full JSON backup.`;
+        }
+    },
+    documents: { keywords: ["document", "file", "upload", "lease"], response: () => `Document Management is a **Business plan** feature (<Crown className="inline h-4 w-4" />). It provides a secure place to upload and store each tenant's **Profile Photo**, **Aadhaar Card**, and **Lease Agreement**. You can manage these from the **Documents** tab.` },
+    idCards: { keywords: ["id card", "identification"], response: () => `The **ID Cards** feature automatically creates a printable identification card for a tenant using their name and photo (if uploaded).` },
+    upgrade: { keywords: ["upgrade", "pro", "business", "plan"], response: () => `You can upgrade your plan from the **Upgrade** tab. The **Pro plan** (<Star className="inline h-4 w-4" />) unlocks financial tools like Insights and Reports. The **Business plan** (<Crown className="inline h-w-4" />) adds secure document storage.` },
+    fallback: { keywords: [], response: () => `I apologize, I only have knowledge about the EstateFlow application. Please click a question from the list or try asking about a specific feature.` }
 };
+
+// --- Comprehensive FAQ List ---
+const faqQuestions = [
+    { q: "How do I add a new tenant?", topic: "tenants", specifics: ["add"] },
+    { q: "How can I edit a tenant's details?", topic: "tenants", specifics: ["edit"] },
+    { q: "How do I create a new room?", topic: "rooms", specifics: ["add"] },
+    { q: "What is 'Rent Sharing' and how does it work?", topic: "rooms", specifics: ["sharing"] },
+    { q: "How do I record a rent payment I received?", topic: "payments", specifics: ["log"] },
+    { q: "A tenant paid online, how do I approve it?", topic: "payments", specifics: ["approve"] },
+    { q: "How do I add an electricity bill to a tenant's due amount?", topic: "electricity" },
+    { q: "How do I track my property expenses?", topic: "expenses" },
+    { q: "What do the financial charts in 'Insights' mean?", topic: "insights" },
+    { q: "How do I download a monthly rent report (PDF/CSV)?", topic: "reports", specifics: ["pdf"] },
+    { q: "How can I backup all my application data?", topic: "reports", specifics: ["backup"] },
+    { q: "Where do I upload a tenant's documents (Lease, ID)?", topic: "documents" },
+    { q: "How do I create an ID card for a tenant?", topic: "idCards" },
+    { q: "How do I manage a maintenance request from a tenant?", topic: "maintenance" },
+    { q: "How can I send an announcement to all tenants?", topic: "notices" },
+    { q: "What are the benefits of upgrading my plan?", topic: "upgrade" },
+];
 
 const getMaddyResponse = (userInput) => {
     const lowerCaseInput = userInput.toLowerCase().trim();
@@ -150,29 +93,20 @@ const getMaddyResponse = (userInput) => {
 
     for (const topicId in knowledgeBase) {
         if (topicId === 'fallback') continue;
-
         const topic = knowledgeBase[topicId];
         let currentScore = 0;
-
         topic.keywords.forEach(keyword => {
             if (lowerCaseInput.includes(keyword)) currentScore += 2;
-            words.forEach(word => {
-                if (word.length > 2 && keyword.includes(word)) currentScore += 1;
-            });
+            words.forEach(word => { if (word.length > 2 && keyword.includes(word)) currentScore += 1; });
         });
-
-        if (currentScore > bestMatch.score) {
-            bestMatch = { id: topicId, score: currentScore };
-        }
+        if (currentScore > bestMatch.score) bestMatch = { id: topicId, score: currentScore };
     }
     
     const specifics = Array.from(words);
-
     if (bestMatch.score > 2) {
         const responseFn = knowledgeBase[bestMatch.id].response;
         return { id: bestMatch.id, response: responseFn(specifics) };
     }
-
     return { id: 'fallback', response: knowledgeBase.fallback.response(userInput) };
 };
 
@@ -184,53 +118,42 @@ const MaddyAI = () => {
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
+    const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-    const handleSend = () => {
-        if (input.trim() === '') return;
+    const handleSend = (query) => {
+        const userQuery = query || input;
+        if (userQuery.trim() === '') return;
 
-        const userMessage = { text: input, sender: 'user' };
+        const userMessage = { text: userQuery, sender: 'user' };
         setMessages(prev => [...prev, userMessage]);
+        setInput('');
 
         setIsTyping(true);
         setTimeout(() => {
-            const { response } = getMaddyResponse(input);
+            const { response } = getMaddyResponse(userQuery);
             const botResponse = { text: response, sender: 'bot' };
             setMessages(prev => [...prev, botResponse]);
             setIsTyping(false);
             inputRef.current?.focus();
-        }, 1200);
-
-        setInput('');
+        }, 1000);
     };
     
-    const handleSuggestionClick = (suggestion) => {
-        setInput(suggestion);
-        setTimeout(() => inputRef.current?.focus(), 100); 
+    const handleFaqClick = (question) => {
+        // Directly send the FAQ question to be processed
+        handleSend(question);
     }
 
     useEffect(() => {
-        if (messages.length === 0) {
+        if (messages.length === 0 && !isTyping) {
             setIsTyping(true);
             setTimeout(() => {
                 setMessages([{ text: knowledgeBase.greetings.response(), sender: 'bot' }]);
                 setIsTyping(false);
-            }, 1000);
+            }, 800);
         }
     }, []);
     
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages, isTyping]);
-
-    const suggestedQuestions = [
-        "How to add a new tenant?",
-        "Explain rent sharing for rooms.",
-        "How do I backup my data?",
-        "How do I handle maintenance requests?",
-    ];
+    useEffect(scrollToBottom, [messages, isTyping]);
     
     return (
         <Card className={cn("w-full h-full max-h-[90vh] flex flex-col shadow-2xl rounded-2xl overflow-hidden", theme.card, theme.border)}>
@@ -242,10 +165,7 @@ const MaddyAI = () => {
                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-card animate-pulse"></div>
                 </div>
                 <div className='flex-1'>
-                    <CardTitle className="text-2xl font-bold flex items-center gap-2">
-                        Maddy AI
-                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">Online</span>
-                    </CardTitle>
+                    <CardTitle className="text-2xl font-bold flex items-center gap-2">Maddy AI</CardTitle>
                     <CardDescription className="text-sm">Your friendly expert for EstateFlow</CardDescription>
                 </div>
             </CardHeader>
@@ -260,49 +180,43 @@ const MaddyAI = () => {
                                         <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white"><BrainCircuit/></AvatarFallback>
                                     </Avatar>
                                 )}
-                                <div className={cn(
-                                    "max-w-xl p-4 rounded-2xl leading-relaxed",
-                                    msg.sender === 'user' 
-                                        ? "bg-primary text-primary-foreground rounded-tr-none" 
-                                        : `${theme.background} rounded-tl-none border`
-                                )}>
+                                <div className={cn("max-w-xl p-4 rounded-2xl leading-relaxed",
+                                    msg.sender === 'user' ? "bg-primary text-primary-foreground rounded-tr-none" : `${theme.background} rounded-tl-none border`)}>
                                      <div className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br />') }} />
                                 </div>
                                 {msg.sender === 'user' && (
-                                     <Avatar className="w-10 h-10 border shrink-0">
-                                        <AvatarFallback><User /></AvatarFallback>
-                                    </Avatar>
+                                     <Avatar className="w-10 h-10 border shrink-0"><AvatarFallback><User /></AvatarFallback></Avatar>
                                 )}
                             </div>
                         ))}
+                        
+                        {messages.length <= 1 && !isTyping && (
+                            <div className="text-sm text-muted-foreground pt-4">
+                                <h3 className="font-bold text-lg mb-4 text-card-foreground text-center flex items-center justify-center gap-2"><HelpCircle className="w-5 h-5" /> Frequently Asked Questions</h3>
+                                <div className="space-y-2">
+                                    {faqQuestions.map((item, i) => (
+                                        <Button 
+                                            key={i} 
+                                            variant="outline" 
+                                            className="h-auto w-full text-left py-3 justify-start text-card-foreground"
+                                            onClick={() => handleFaqClick(item.q)}
+                                        >
+                                            {item.q}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {isTyping && (
                              <div className="flex items-start gap-4">
-                                <Avatar className="w-10 h-10 border shrink-0">
-                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white"><BrainCircuit/></AvatarFallback>
-                                </Avatar>
+                                <Avatar className="w-10 h-10 border shrink-0"><AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white"><BrainCircuit/></AvatarFallback></Avatar>
                                 <div className={cn("max-w-md p-4 rounded-2xl rounded-tl-none", theme.background, "border")}>
                                     <div className="flex items-center gap-2">
                                         <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                                         <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                                         <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
                                     </div>
-                                </div>
-                            </div>
-                        )}
-                         {messages.length <= 1 && !isTyping && (
-                            <div className="text-center text-sm text-muted-foreground pt-8">
-                                <h3 className="font-bold text-lg mb-4 text-card-foreground">Here are a few things you can ask:</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {suggestedQuestions.map((q, i) => (
-                                        <Button 
-                                            key={i} 
-                                            variant="outline" 
-                                            className="h-auto text-left py-3 justify-start"
-                                            onClick={() => handleSuggestionClick(q)}
-                                        >
-                                            {q}
-                                        </Button>
-                                    ))}
                                 </div>
                             </div>
                         )}
@@ -315,19 +229,14 @@ const MaddyAI = () => {
                 <div className="relative w-full">
                     <Input
                         ref={inputRef}
-                        placeholder="Ask Maddy anything in simple terms..."
+                        placeholder="Or type your own question here..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                handleSend();
-                                e.preventDefault();
-                            }
-                        }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSend(); e.preventDefault(); }}}
                         className="pr-20 h-12 rounded-full pl-6 text-base"
                     />
                     <div className='absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1'>
-                            <Button type="submit" size="icon" onClick={handleSend} className="rounded-full w-9 h-9" disabled={isTyping || !input.trim()}>
+                        <Button type="submit" size="icon" onClick={() => handleSend()} className="rounded-full w-9 h-9" disabled={isTyping || !input.trim()}>
                             <Send className="h-4 w-4" />
                         </Button>
                     </div>
