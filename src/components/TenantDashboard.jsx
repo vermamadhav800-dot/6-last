@@ -30,6 +30,7 @@ import Upgrade from './Upgrade';
 import { useAppTheme } from '@/contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import ComingSoon from './ComingSoon';
+import { Badge } from '@/components/ui/badge';
 
 const ProfessionalTenantDashboard = ({ tenant, ownerState, setAppState, ownerId, property, onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');

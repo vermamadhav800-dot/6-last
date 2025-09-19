@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { User, Building, Phone, Mail, FileText, Save, Trash2, Camera, Edit, X } from 'lucide-react';
+import { User, Building, Phone, Mail, FileText, Save, Trash2, Camera, Edit, X, QrCode } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const ViewField = ({ icon: Icon, label, value }) => (
@@ -29,12 +29,13 @@ export default function OwnerProfile({ appState, setAppState, user, isInitialSet
   const [isEditing, setIsEditing] = useState(isInitialSetup);
 
   // State for form inputs, initialized from appState
-  const [profile, setProfile] = useState(appState.MOCK_USER_INITIAL || {});
+  const [profile, setProfile] = useState(appState.ownerProfile || {});
   const [defaults, setDefaults] = useState(appState.defaults || {});
   
   // State for file previews
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(profile.photoURL || null);
   const [panCardPreview, setPanCardPreview] = useState(profile.panCardUrl || null);
+  const [qrCodePreview, setQrCodePreview] = useState(profile.qrCode || null);
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -59,10 +60,11 @@ export default function OwnerProfile({ appState, setAppState, user, isInitialSet
   
   const handleCancel = () => {
     // Reset form state to original
-    setProfile(appState.MOCK_USER_INITIAL || {});
+    setProfile(appState.ownerProfile || {});
     setDefaults(appState.defaults || {});
-    setProfilePhotoPreview(appState.MOCK_USER_INITIAL?.photoURL || null);
-    setPanCardPreview(appState.MOCK_USER_INITIAL?.panCardUrl || null);
+    setProfilePhotoPreview(appState.ownerProfile?.photoURL || null);
+    setPanCardPreview(appState.ownerProfile?.panCardUrl || null);
+    setQrCodePreview(appState.ownerProfile?.qrCode || null);
     setIsEditing(false);
   };
 
@@ -78,11 +80,12 @@ export default function OwnerProfile({ appState, setAppState, user, isInitialSet
 
     setAppState(prev => {
         const newState = { ...prev };
-        newState.MOCK_USER_INITIAL = {
-            ...newState.MOCK_USER_INITIAL,
+        newState.ownerProfile = {
+            ...newState.ownerProfile,
             ...profile,
             photoURL: profilePhotoPreview, // Use preview state
             panCardUrl: panCardPreview,     // Use preview state
+            qrCode: qrCodePreview, // Use preview state
         };
         newState.defaults = {
             ...newState.defaults,
@@ -174,8 +177,8 @@ export default function OwnerProfile({ appState, setAppState, user, isInitialSet
 
       <Card>
         <CardHeader>
-          <CardTitle>Business Information</CardTitle>
-          <CardDescription>Manage your business and tax-related information.</CardDescription>
+          <CardTitle>Business & Payment Information</CardTitle>
+          <CardDescription>Manage your business, tax, and payment-related information.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {isEditing ? (
@@ -185,6 +188,8 @@ export default function OwnerProfile({ appState, setAppState, user, isInitialSet
                 <div><Label htmlFor="gstin">GSTIN (Optional)</Label><Input id="gstin" name="gstin" value={profile.gstin || ''} onChange={handleProfileChange} /></div>
               </div>
               <div><Label htmlFor="propertyAddress">{isInitialSetup ? 'Property Address' : 'Default Property Address'}</Label><Input id="propertyAddress" name="propertyAddress" value={defaults.propertyAddress || ''} onChange={handleDefaultsChange} required /></div>
+              <div><Label htmlFor="upiId">UPI ID</Label><Input id="upiId" name="upiId" value={profile.upiId || ''} onChange={handleProfileChange} /></div>
+              
               <div className="space-y-2 pt-4 border-t mt-4">
                   <Label>PAN Card</Label>
                   <div className="flex flex-col sm:flex-row items-start gap-4">
@@ -209,17 +214,54 @@ export default function OwnerProfile({ appState, setAppState, user, isInitialSet
                     </div>
                   </div>
                 </div>
+
+                <div className="space-y-2 pt-4 border-t mt-4">
+                  <Label>Payment QR Code</Label>
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
+                    {qrCodePreview && (
+                        <img src={qrCodePreview} alt="QR Code Preview" className="w-48 h-auto rounded-md border p-1 object-contain"/>
+                    )}
+                    <div className="flex-1">
+                        <Input 
+                            id="qrCode"
+                            type="file" 
+                            accept="image/png, image/jpeg, image/jpg" 
+                            onChange={(e) => handleFileChange(e, setQrCodePreview)}
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Upload your UPI payment QR code image.
+                        </p>
+                        {qrCodePreview && (
+                            <Button variant="link" className="text-red-500 p-0 h-auto mt-2" onClick={() => setQrCodePreview(null)}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Remove File
+                            </Button>
+                        )}
+                    </div>
+                   </div>
+                </div>
             </>
           ) : (
             <div className="space-y-2">
                 <ViewField icon={Building} label={isInitialSetup ? 'Your First Property Name' : 'Default Property Name'} value={defaults?.propertyName} />
                 <ViewField icon={Building} label={isInitialSetup ? 'Property Address' : 'Default Property Address'} value={defaults?.propertyAddress} />
+                <ViewField icon={User} label="UPI ID" value={profile.upiId} />
                  <div className="flex items-start gap-4 p-3 rounded-lg">
                     <FileText className="w-5 h-5 text-muted-foreground mt-1" />
                     <div>
                         <p className="text-sm text-muted-foreground">PAN Card</p>
                         {panCardPreview ? (
                              <a href={panCardPreview} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Document</a>
+                        ) : (
+                            <p className="font-medium italic">Not set</p>
+                        )}
+                    </div>
+                </div>
+                <div className="flex items-start gap-4 p-3 rounded-lg">
+                    <QrCode className="w-5 h-5 text-muted-foreground mt-1" />
+                    <div>
+                        <p className="text-sm text-muted-foreground">Payment QR Code</p>
+                        {qrCodePreview ? (
+                                <img src={qrCodePreview} alt="QR Code" className="w-32 h-32 mt-2 rounded-md" />
                         ) : (
                             <p className="font-medium italic">Not set</p>
                         )}

@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, CheckCircle, Clock, Calendar, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,40 +15,18 @@ import StatCard from './StatCard';
 import { useToast } from "@/hooks/use-toast";
 import { differenceInDays, parseISO } from 'date-fns';
 import RentReceipt from './RentReceipt';
+import PaymentGateway from './PaymentGateway'; // Import the new component
 
 
 export default function Payments({ appState, setAppState }) {
-  const { payments, tenants, rooms, electricity } = appState;
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const { payments, tenants, rooms, electricity, ownerProfile } = appState;
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState(null);
   const { toast } = useToast();
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [isPaymentGatewayOpen, setIsPaymentGatewayOpen] = useState(false);
 
-  const handleAddPayment = (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const tenantId = formData.get('tenantId');
-    const tenant = tenants.find(t => t.id === tenantId);
-    
-    if (!tenant) {
-      toast({ variant: "destructive", title: "Error", description: "Tenant not found." });
-      return;
-    }
-    
-    const newPayment = {
-      id: Date.now().toString(),
-      tenantId,
-      amount: Number(formData.get('amount')),
-      date: new Date(formData.get('date')).toISOString(),
-      method: formData.get('method'),
-    };
-    
-    setAppState(prev => ({ ...prev, payments: [...prev.payments, newPayment] }));
-    toast({ title: "Success", description: `Payment of ₹${newPayment.amount} recorded for ${tenant.name}.` });
-    setIsAddModalOpen(false);
-  };
-  
+
   const confirmDeletePayment = (payment) => {
     setPaymentToDelete(payment);
     setIsDeleteAlertOpen(true);
@@ -63,16 +41,16 @@ export default function Payments({ appState, setAppState }) {
   };
 
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
-  
+
   const thisMonth = new Date().getMonth();
   const thisYear = new Date().getFullYear();
-  
+
   const thisMonthPayments = payments.filter(p => {
     const paymentDate = new Date(p.date);
     return paymentDate.getMonth() === thisMonth && paymentDate.getFullYear() === thisYear;
   });
   const thisMonthCollection = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-  
+
   const totalPending = tenants.reduce((totalPending, tenant) => {
     const room = rooms.find(r => r.number === tenant.unitNo);
     if (!room) return totalPending;
@@ -102,39 +80,20 @@ export default function Payments({ appState, setAppState }) {
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl md:text-3xl font-bold font-headline">Payment Management</h2>
-          <p className="text-muted-foreground">Record and track all incoming rent payments.</p>
+          <p className="text-muted-foreground">Track all incoming rent payments and manage payment gateway.</p>
         </div>
-        <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+        <Dialog open={isPaymentGatewayOpen} onOpenChange={setIsPaymentGatewayOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> Record Payment</Button>
+            <Button><Plus className="mr-2 h-4 w-4" /> View Payment Gateway</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Record New Payment</DialogTitle></DialogHeader>
-            <form onSubmit={handleAddPayment} className="space-y-4 py-4">
-              <div>
-                <Label htmlFor="tenantId">Tenant</Label>
-                <Select name="tenantId" required>
-                  <SelectTrigger><SelectValue placeholder="Select a tenant" /></SelectTrigger>
-                  <SelectContent>
-                    {tenants.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label htmlFor="amount">Amount (₹)</Label><Input id="amount" name="amount" type="number" required /></div>
-              <div><Label htmlFor="date">Payment Date</Label><Input id="date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required /></div>
-              <div>
-                <Label htmlFor="method">Payment Method</Label>
-                <Select name="method" defaultValue="UPI" required>
-                  <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <DialogFooter><Button type="submit">Record Payment</Button></DialogFooter>
-            </form>
+            <DialogHeader>
+                <DialogTitle>Payment Gateway</DialogTitle>
+                <DialogDescription>
+                  Tenants can use this information to pay their rent.
+                </DialogDescription>
+            </DialogHeader>
+            <PaymentGateway ownerProfile={ownerProfile} />
           </DialogContent>
         </Dialog>
       </div>
