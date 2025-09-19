@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from "@/lib/hooks";
 import { INITIAL_APP_STATE } from "@/lib/consts";
 import OwnerProfile from "@/components/OwnerProfile";
+import { generateTenantId } from "@/lib/utils";
 
 export default function Home() {
   const [isStartupLoading, setIsStartupLoading] = useState(true);
@@ -79,29 +80,53 @@ export default function Home() {
     });
   }, [setAppState]);
 
-  // One-time tenant ID migration (now inside properties)
+  // Stable Tenant Login ID Migration
   useEffect(() => {
     setAppState(currentAppState => {
         let needsUpdate = false;
         const updatedState = JSON.parse(JSON.stringify(currentAppState));
+        const existingLoginIds = new Set();
+
+        // First, collect all existing valid loginIds to avoid duplicates
         for (const ownerKey in updatedState) {
-            if (updatedState[ownerKey] && updatedState[ownerKey].properties) {
+            if (updatedState[ownerKey]?.properties) {
                 updatedState[ownerKey].properties.forEach(property => {
-                    if (property.tenants) {
-                        property.tenants.forEach(tenant => {
-                            if (!tenant.tenantId) {
-                                needsUpdate = true;
-                                tenant.tenantId = Math.floor(100000 + Math.random() * 900000).toString();
-                            }
-                        });
-                    }
+                    property.tenants?.forEach(tenant => {
+                        if (tenant.loginId && tenant.loginId.startsWith('TID-')) {
+                            existingLoginIds.add(tenant.loginId);
+                        }
+                    });
                 });
             }
         }
-        if (needsUpdate) return updatedState;
+
+        // Now, migrate tenants who don't have a stable, unique loginId
+        for (const ownerKey in updatedState) {
+            if (updatedState[ownerKey]?.properties) {
+                updatedState[ownerKey].properties.forEach(property => {
+                    property.tenants?.forEach(tenant => {
+                        if (!tenant.loginId || !tenant.loginId.startsWith('TID-') || existingLoginIds.has(tenant.loginId)) {
+                            needsUpdate = true;
+                            let newId;
+                            do {
+                                newId = generateTenantId();
+                            } while (existingLoginIds.has(newId));
+                            tenant.loginId = newId;
+                            existingLoginIds.add(newId);
+                        }
+                    });
+                });
+            }
+        }
+
+        if (needsUpdate) {
+            console.log("Migrating tenant login IDs to a stable version...");
+            return updatedState;
+        }
         return currentAppState;
     });
   }, [setAppState]);
+
 
   // Effect to show profile completion toast
   useEffect(() => {
@@ -111,7 +136,7 @@ export default function Home() {
             const isProfileComplete = ownerData.properties && ownerData.properties.length > 0 && ownerData.properties[0].name;
             if (!isProfileComplete) {
                 toast({
-                    title: "Welcome! Let's set up your profile.",
+                    title: "Welcome! Let\'s set up your profile.",
                     description: "Please fill in your property details to continue.",
                     duration: 5000,
                 });
@@ -170,11 +195,16 @@ export default function Home() {
         }
 
         if (action === 'login') { // Tenant login
+            const normalizedUserInputPhone = (credentials.username || '').replace(/\D/g, '').slice(-10);
             for (const ownerKey in appState) {
                 const ownerData = appState[ownerKey];
-                if (ownerData && ownerData.properties) {
+                if (ownerData?.properties) {
                     for (const property of ownerData.properties) {
-                        const tenant = property.tenants?.find(t => t.loginId === credentials.loginId);
+                        const tenant = property.tenants?.find(t => {
+                            const storedTenantPhone = (t.phone || '').replace(/\D/g, '').slice(-10);
+                            return storedTenantPhone === normalizedUserInputPhone && t.loginId === credentials.tenantId;
+                        });
+
                         if (tenant) {
                             setAuth({ user: tenant, role: 'tenant', ownerId: ownerKey, propertyId: property.id });
                             toast({ title: "Login Successful", description: `Welcome, ${tenant.name}!` });
@@ -184,6 +214,7 @@ export default function Home() {
                     }
                 }
             }
+            toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials. Please check your phone number and Login ID." });
         } else if (action === 'register') { // Owner registration
             const normalizedPhone = (credentials.phone || '').replace(/\D/g, '').slice(-10);
             const phoneExists = Object.values(appState).some(owner => (owner?.MOCK_USER_INITIAL?.phone || '').replace(/\D/g, '').slice(-10) === normalizedPhone);
@@ -215,11 +246,6 @@ export default function Home() {
     } catch (error) {
         console.error("Auth Error:", error);
         toast({ variant: "destructive", title: "Authentication Error", description: "An unexpected error occurred." });
-    }
-
-    // If tenant login fails, show a specific message
-    if (action === 'login') {
-      toast({ variant: "destructive", title: "Login Failed", description: "Invalid Login ID. Please check and try again." });
     }
 
     setIsLoading(false);

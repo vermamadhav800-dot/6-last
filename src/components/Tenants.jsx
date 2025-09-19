@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Edit, Trash2, MoreVertical, Search, UserPlus, BedDouble, Users, FileText, Phone, Mail, BadgeInfo, Banknote, ShieldAlert, Calendar, FileScan } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, MoreVertical, Search, UserPlus, BedDouble, Users, FileText, Phone, Mail, BadgeInfo, Banknote, ShieldAlert, Calendar, FileScan, Copy } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { generateTenantId } from '@/lib/utils';
 
 const getInitials = (name) => {
     if (!name) return 'U';
@@ -36,6 +37,7 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
             profilePhotoUrl: tenant?.profilePhotoUrl || null,
             aadhaarCardUrl: tenant?.aadhaarCardUrl || null,
             leaseAgreementUrl: tenant?.leaseAgreementUrl || null,
+            loginId: tenant?.loginId || '',
         });
     }, [isOpen, tenant]);
 
@@ -49,8 +51,8 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
     };
 
     const handleSubmit = () => {
-        if (!formData.name || !formData.phone || !formData.roomId) {
-            toast({ variant: "destructive", title: "Missing Fields", description: "Name, Phone, and Room are required." });
+        if (!formData.name || !formData.phone || !formData.roomId || !formData.loginId) {
+            toast({ variant: "destructive", title: "Missing Fields", description: "Name, Phone, Room, and Login ID are required." });
             return;
         }
 
@@ -67,6 +69,17 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
     
     const roomForTenant = rooms.find(r => r.id === formData.roomId);
     const isRentSharing = roomForTenant?.rentSharing;
+
+    const handleGenerateId = () => {
+        const newId = generateTenantId();
+        setFormData(prev => ({ ...prev, loginId: newId }));
+    };
+
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(formData.loginId).then(() => {
+            toast({ title: "Copied!", description: "Login ID copied to clipboard." });
+        });
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -93,6 +106,15 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
 
                     {/* Column 2: Room & Tenancy Info */}
                     <div className="col-span-1 space-y-4 border-l border-r border-slate-800 px-6">
+                        <div className="space-y-2">
+                            <Label>Login ID</Label>
+                            <div className="flex items-center gap-2">
+                                <Input value={formData.loginId} readOnly placeholder="Generate an ID" />
+                                <Button size="icon" variant="outline" onClick={copyToClipboard} disabled={!formData.loginId}><Copy className="h-4 w-4"/></Button>
+                            </div>
+                            <Button onClick={handleGenerateId} className="w-full">Generate ID</Button>
+                            
+                        </div>
                         <div className="space-y-2">
                             <Label>Room / Unit</Label>
                             <select value={formData.roomId} onChange={e => setFormData({...formData, roomId: e.target.value})} className="w-full bg-slate-800 border border-slate-600 rounded p-2">
@@ -215,6 +237,7 @@ export default function Tenants({ appState: activeProperty, setAppState: dispatc
                             </DropdownMenu>
                         </CardHeader>
                         <CardContent className="space-y-3 text-sm flex-1">
+                             <div className="flex items-center gap-3"><BadgeInfo className="h-4 w-4 text-slate-400"/><span>Login ID: {tenant.loginId || 'N/A'}</span></div>
                             <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-slate-400"/><span>{tenant.phone}</span></div>
                             <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-slate-400"/><span>{tenant.email || 'Not provided'}</span></div>
                             <div className="flex items-center gap-3 text-green-400"><Banknote className="h-4 w-4"/><span>Rent: ₹{tenant.rent ? tenant.rent.toFixed(2) : 'N/A'}</span></div>
