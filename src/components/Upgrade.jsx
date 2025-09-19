@@ -233,9 +233,9 @@ export default function Upgrade({ appState, setAppState, onUpgradeSuccess }) {
         if (plan.planType === currentPlan) return;
 
         if (plan.priceAmount === 0) {
-            setAppState(prev => ({
-                ...prev,
-                defaults: { ...prev.defaults, subscriptionPlan: 'standard' }
+            setAppState(prevDefaults => ({
+                ...prevDefaults,
+                subscriptionPlan: 'standard'
             }));
             toast({
                 title: 'Plan Updated',
@@ -250,9 +250,9 @@ export default function Upgrade({ appState, setAppState, onUpgradeSuccess }) {
     const handleUpgradeSuccess = (plan) => {
         setShowPayment(false);
         
-        setAppState(prev => ({
-            ...prev,
-            defaults: { ...prev.defaults, subscriptionPlan: plan.planType },
+        setAppState(prevDefaults => ({
+            ...prevDefaults,
+            subscriptionPlan: plan.planType,
         }));
         
         toast({

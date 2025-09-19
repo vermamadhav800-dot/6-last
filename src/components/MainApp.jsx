@@ -246,9 +246,14 @@ function AppContent({ activeTab, setActiveTab, ownerState, dispatch, user, activ
   const renderTabContent = () => {
     const props = { appState: enhancedActiveProperty, setAppState: dispatch, user, setActiveTab, ownerState };
 
+    const setOwnerState = (updater) => {
+        const newDefaults = typeof updater === 'function' ? updater(ownerState.defaults) : updater;
+        dispatch({ type: 'UPDATE_OWNER_DEFAULTS', payload: newDefaults });
+    };
+
     switch (activeTab) {
       case "dashboard": return <ProfessionalDashboard {...props} />;
-      case "profile": return <OwnerProfile appState={ownerState} setAppState={(...args) => dispatch({type: 'UPDATE_OWNER_DEFAULTS', payload: args[0](ownerState.defaults)})} user={user} />;
+      case "profile": return <OwnerProfile appState={ownerState} setAppState={setOwnerState} user={user} />;
       case "properties": return <Properties appState={ownerState} setAppState={dispatch} setActivePropertyId={(id) => dispatch({type: 'SET_ACTIVE_PROPERTY', payload: id})} />;
       case "tenants": return <Tenants {...props} />;
       case "rooms": return <Rooms {...props} />;
@@ -263,8 +268,8 @@ function AppContent({ activeTab, setActiveTab, ownerState, dispatch, user, activ
       case "ai-assistant": return <AIAssistant {...props} />;
       case "reports": return <Reports {...props} />;
       case "notices": return <NoticeBoard {...props} />;
-      case "settings": return <AppSettings appState={ownerState} setAppState={(...args) => dispatch({type: 'UPDATE_OWNER_DEFAULTS', payload: args[0](ownerState.defaults)})} user={user} />;
-      case "upgrade": return <Upgrade appState={ownerState} setAppState={(...args) => dispatch({type: 'UPDATE_OWNER_DEFAULTS', payload: args[0](ownerState.defaults)})} onUpgradeSuccess={() => setActiveTab('dashboard')} />;
+      case "settings": return <AppSettings appState={ownerState} setAppState={setOwnerState} user={user} />;
+      case "upgrade": return <Upgrade appState={ownerState} setAppState={setOwnerState} onUpgradeSuccess={() => setActiveTab('dashboard')} />;
       default: return <ProfessionalDashboard {...props} />;
     }
   };
