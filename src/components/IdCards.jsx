@@ -1,25 +1,25 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { IdCard, Users, Download } from "lucide-react";
 import TenantIdCard from './TenantIdCard';
 import html2canvas from 'html2canvas';
 
-const IdCardDialog = ({ isOpen, setIsOpen, tenant, ownerState }) => {
+const IdCardDialog = ({ isOpen, setIsOpen, tenant, ownerState, roomNo }) => {
     if (!tenant) return null;
 
     const handleDownload = () => {
         const cardElement = document.getElementById("tenant-id-card-printable");
         if (cardElement) {
             html2canvas(cardElement, { 
-                scale: 3, // Higher scale for better quality
-                useCORS: true, // Needed for external images
-                backgroundColor: null, // Use element's background
+                scale: 3, 
+                useCORS: true,
+                backgroundColor: null,
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = `${tenant.name.replace(/ /g, '_')}_ID_Card.png`;
@@ -31,18 +31,22 @@ const IdCardDialog = ({ isOpen, setIsOpen, tenant, ownerState }) => {
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2"><IdCard /> Tenant ID Card</DialogTitle>
+            <DialogContent className="bg-transparent border-none shadow-none sm:max-w-md p-0">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Tenant ID Card: {tenant.name}</DialogTitle>
+                    <DialogDescription>
+                        This is the official ID card for {tenant.name}, residing in room {roomNo}. You can download it as an image.
+                    </DialogDescription>
                 </DialogHeader>
-                <div id="tenant-id-card-printable" className="py-4 flex justify-center">
+                <div id="tenant-id-card-printable" className="flex justify-center">
                     <TenantIdCard 
                         tenant={tenant} 
                         ownerState={ownerState} 
-                        propertyName={ownerState.defaults?.propertyName}
+                        propertyName={ownerState.properties.find(p => p.id === ownerState.activePropertyId)?.name}
+                        roomNo={roomNo}
                     />
                 </div>
-                <DialogFooter className="sm:justify-end gap-2">
+                <DialogFooter className="absolute -bottom-14 left-1/2 -translate-x-1/2 w-full sm:justify-center gap-2">
                     <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>
                     <Button onClick={handleDownload}><Download className="mr-2 h-4 w-4" /> Download</Button>
                 </DialogFooter>
@@ -51,87 +55,57 @@ const IdCardDialog = ({ isOpen, setIsOpen, tenant, ownerState }) => {
     );
 };
 
-export default function IdCards({ appState: activeProperty, setAppState: setOwnerState, ownerState }) {
-    const { tenants = [] } = activeProperty;
+export default function IdCards({ appState: activeProperty, setAppState: dispatch, ownerState }) {
+    const { tenants = [], rooms = [] } = activeProperty;
     const [isIdCardModalOpen, setIsIdCardModalOpen] = useState(false);
     const [selectedTenant, setSelectedTenant] = useState(null);
-
-    useEffect(() => {
-        if (!tenants || tenants.length === 0) return;
-
-        let needsUpdate = false;
-        const updatedTenants = tenants.map(tenant => {
-            if (!tenant.tenantId) {
-                needsUpdate = true;
-                return { ...tenant, tenantId: Math.floor(100000 + Math.random() * 900000).toString() };
-            }
-            return tenant;
-        });
-
-        if (needsUpdate) {
-            setOwnerState(prevOwnerState => {
-                const newOwnerState = { ...prevOwnerState };
-                const propertyIndex = newOwnerState.properties.findIndex(p => p.id === activeProperty.id);
-
-                if (propertyIndex !== -1) {
-                    newOwnerState.properties[propertyIndex] = {
-                        ...newOwnerState.properties[propertyIndex],
-                        tenants: updatedTenants,
-                    };
-                }
-                return newOwnerState;
-            });
-        }
-    }, [tenants, setOwnerState, activeProperty.id]);
 
     const handleGenerateIdCard = (tenant) => {
         setSelectedTenant(tenant);
         setIsIdCardModalOpen(true);
     };
+    
+    const getRoomForTenant = (roomId) => rooms.find(r => r.id === roomId)?.name;
 
     return (
         <div className="space-y-6">
-             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                <div className="space-y-1">
-                <h2 className="text-2xl md:text-3xl font-bold font-headline">Tenant ID Cards</h2>
-                <p className="text-muted-foreground">Generate and download official ID cards for your tenants.</p>
-                </div>
-            </div>
-
-            {tenants.length === 0 ? (
-                <Card className="glass-card text-center text-muted-foreground py-16 border-2 border-dashed rounded-2xl">
-                    <Users className="mx-auto h-16 w-16 mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">No Tenants Found</h3>
-                    <p>Add tenants to generate their ID cards.</p>
-                </Card>
-            ) : (
-                <Card className="glass-card">
-                    <CardHeader>
-                        <CardTitle>All Tenants</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Tenant ID Cards</CardTitle>
+                    <CardDescription>Generate and download official ID cards for your tenants.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {tenants.length === 0 ? (
+                        <div className="text-center py-12 border-2 border-dashed border-slate-700 rounded-lg">
+                            <Users className="mx-auto h-12 w-12 text-slate-500"/>
+                            <h3 className="mt-2 text-lg font-medium">No Tenants Found</h3>
+                            <p className="mt-1 text-sm text-slate-400">Add tenants to generate their ID cards.</p>
+                        </div>
+                    ) : (
                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {tenants.map(tenant => (
-                                <div key={tenant.id} className="bg-background/50 border rounded-lg p-4 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow duration-200">
-                                    <Avatar className="w-20 h-20 mb-3 border-2 border-primary/50">
+                            {tenants.map(tenant => {
+                                const roomName = getRoomForTenant(tenant.roomId);
+                                return (
+                                <div key={tenant.id} className="bg-slate-800/50 border border-white/10 rounded-lg p-4 flex flex-col items-center text-center shadow-md hover:shadow-indigo-500/20 transition-all duration-300">
+                                    <Avatar className="w-24 h-24 mb-4 border-4 border-slate-700">
                                         <AvatarImage src={tenant.profilePhotoUrl} alt={tenant.name} />
-                                        <AvatarFallback className="text-2xl">{tenant.name.charAt(0)}</AvatarFallback>
+                                        <AvatarFallback className="text-3xl">{tenant.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
-                                    <p className="font-semibold text-lg">{tenant.name}</p>
-                                    <p className="text-sm text-muted-foreground">Room: {tenant.unitNo}</p>
-                                    <p className="text-sm text-muted-foreground">{tenant.phone}</p>
+                                    <p className="font-bold text-xl">{tenant.name}</p>
+                                    <p className="text-sm text-indigo-300 font-medium">{roomName || 'No Room Assigned'}</p>
+                                    <p className="text-sm text-slate-400 mt-1">{tenant.phone}</p>
                                     <Button 
                                         onClick={() => handleGenerateIdCard(tenant)} 
-                                        className="mt-4 w-full btn-gradient-glow"
+                                        className="mt-5 w-full"
                                     >
                                         <IdCard className="mr-2 h-4 w-4" /> View ID Card
                                     </Button>
                                 </div>
-                            ))}
+                            )})}
                         </div>
-                    </CardContent>
-                </Card>
-            )}
+                    )}
+                </CardContent>
+            </Card>
 
             {isIdCardModalOpen && 
                 <IdCardDialog 
@@ -139,6 +113,7 @@ export default function IdCards({ appState: activeProperty, setAppState: setOwne
                     setIsOpen={setIsIdCardModalOpen} 
                     tenant={selectedTenant} 
                     ownerState={ownerState}
+                    roomNo={getRoomForTenant(selectedTenant.roomId)}
                 />
             }
         </div>

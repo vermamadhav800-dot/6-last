@@ -3,9 +3,9 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import AppLogo from './AppLogo';
-import { User, Phone, Home, Shield } from 'lucide-react';
+import { User, Phone, Home, Shield, LockKeyhole } from 'lucide-react';
 
-const TenantIdCard = ({ tenant, ownerState, propertyName }) => {
+const TenantIdCard = ({ tenant, ownerState, propertyName, roomNo }) => {
     const ownerName = ownerState?.MOCK_USER_INITIAL?.name || "Property Owner";
 
     return (
@@ -55,7 +55,7 @@ const TenantIdCard = ({ tenant, ownerState, propertyName }) => {
                         </div>
                         <div className="flex items-center">
                             <Home className="w-5 h-5 text-gray-400 mr-4" />
-                            <span className="text-gray-700 dark:text-gray-300 font-medium">Room No: {tenant.unitNo}</span>
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">Room: {roomNo || 'N/A'}</span>
                         </div>
                          <div className="flex items-center">
                             <Shield className="w-5 h-5 text-gray-400 mr-4" />
@@ -63,9 +63,9 @@ const TenantIdCard = ({ tenant, ownerState, propertyName }) => {
                         </div>
                     </div>
                      <div className="mt-6 bg-blue-50 dark:bg-blue-900/30 border-2 border-dashed border-blue-300 dark:border-blue-500/50 rounded-xl p-4 text-center">
-                        <p className="text-sm font-medium text-blue-600 dark:text-blue-300">Your Unique Login ID</p>
-                        <p className="text-4xl font-extrabold tracking-widest text-blue-800 dark:text-blue-200 mt-2">{tenant.tenantId}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Use this ID with your registered phone number to sign in.</p>
+                        <p className="text-sm font-medium text-blue-600 dark:text-blue-300 flex items-center justify-center gap-2"><LockKeyhole className="w-4 h-4"/> Your Unique Login ID</p>
+                        <p className="text-3xl font-extrabold tracking-wider text-blue-800 dark:text-blue-200 mt-2 font-mono">{tenant.loginId || 'Not Generated'}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Use this ID with your phone to sign in.</p>
                     </div>
                 </div>
                  <div className="bg-gray-100 dark:bg-black/20 px-6 py-3 text-xs text-gray-500 dark:text-gray-400 text-center">

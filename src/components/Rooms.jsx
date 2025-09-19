@@ -4,13 +4,13 @@
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Edit, Trash2, BedDouble, Users, DollarSign, KeyRound, Building, CheckSquare, XSquare } from 'lucide-react';
 
-export default function Rooms({ appState: activeProperty, setAppState: setOwnerState, ownerId }) {
+export default function Rooms({ appState: activeProperty, setAppState: dispatch }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRoom, setEditingRoom] = useState(null);
     const [roomToDelete, setRoomToDelete] = useState(null);
@@ -37,37 +37,23 @@ export default function Rooms({ appState: activeProperty, setAppState: setOwnerS
             return;
         }
 
-        setOwnerState(prevOwnerState => {
-            return {
-                ...prevOwnerState,
-                properties: prevOwnerState.properties.map(property => {
-                    if (property.id !== activeProperty.id) {
-                        return property;
-                    }
+        const roomPayload = {
+            ...newRoomData,
+            capacity: Number(newRoomData.capacity),
+            rent: Number(newRoomData.rent),
+        };
 
-                    let updatedRooms;
-                    if (editingRoom) {
-                        updatedRooms = (property.rooms || []).map(room =>
-                            room.id === editingRoom.id ? { ...editingRoom, ...newRoomData, capacity: Number(newRoomData.capacity), rent: Number(newRoomData.rent) } : room
-                        );
-                    } else {
-                        const newRoom = {
-                            ...newRoomData,
-                            id: `room_${Date.now()}`,
-                            number: newRoomData.name.replace(/\s+/g, '-').toLowerCase(),
-                            capacity: Number(newRoomData.capacity),
-                            rent: Number(newRoomData.rent),
-                        };
-                        updatedRooms = [...(property.rooms || []), newRoom];
-                    }
-
-                    return {
-                        ...property,
-                        rooms: updatedRooms
-                    };
-                })
-            };
-        });
+        if (editingRoom) {
+            dispatch({ 
+                type: 'UPDATE_ROOM', 
+                payload: { ...editingRoom, ...roomPayload } 
+            });
+        } else {
+            dispatch({ 
+                type: 'ADD_ROOM', 
+                payload: { ...roomPayload, id: `room_${Date.now()}` } 
+            });
+        }
 
         toast({ title: "Success", description: `Room ${editingRoom ? 'updated' : 'added'} successfully.` });
         setIsModalOpen(false);
@@ -76,19 +62,9 @@ export default function Rooms({ appState: activeProperty, setAppState: setOwnerS
     const handleDeleteConfirmation = () => {
         if (!roomToDelete) return;
         
-        setOwnerState(prevOwnerState => {
-            return {
-                ...prevOwnerState,
-                properties: prevOwnerState.properties.map(property => {
-                    if (property.id !== activeProperty.id) {
-                        return property;
-                    }
-                    return {
-                        ...property,
-                        rooms: (property.rooms || []).filter(r => r.id !== roomToDelete.id)
-                    };
-                })
-            };
+        dispatch({ 
+            type: 'DELETE_ROOM', 
+            payload: { id: roomToDelete.id } 
         });
         
         toast({ variant: "destructive", title: "Deleted", description: "The room has been deleted." });

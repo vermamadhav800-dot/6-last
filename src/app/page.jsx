@@ -174,7 +174,7 @@ export default function Home() {
                 const ownerData = appState[ownerKey];
                 if (ownerData && ownerData.properties) {
                     for (const property of ownerData.properties) {
-                        const tenant = property.tenants?.find(t => t.phone === credentials.username && t.tenantId === credentials.tenantId);
+                        const tenant = property.tenants?.find(t => t.loginId === credentials.loginId);
                         if (tenant) {
                             setAuth({ user: tenant, role: 'tenant', ownerId: ownerKey, propertyId: property.id });
                             toast({ title: "Login Successful", description: `Welcome, ${tenant.name}!` });
@@ -216,6 +216,12 @@ export default function Home() {
         console.error("Auth Error:", error);
         toast({ variant: "destructive", title: "Authentication Error", description: "An unexpected error occurred." });
     }
+
+    // If tenant login fails, show a specific message
+    if (action === 'login') {
+      toast({ variant: "destructive", title: "Login Failed", description: "Invalid Login ID. Please check and try again." });
+    }
+
     setIsLoading(false);
     return false;
   };
