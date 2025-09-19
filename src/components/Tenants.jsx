@@ -1,496 +1,199 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Edit, MoreVertical, Users, Home, Eye as ViewIcon, Phone, Mail, FileText, Calendar as CalendarIcon, IdCard, UploadCloud, ShieldAlert, MessageSquare, FolderArchive, Lock, KeyRound, Copy } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState, useMemo } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { differenceInDays, parseISO, format, isValid } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import { Textarea } from './ui/textarea';
+// BUG FIX: Replaced non-existent 'Id' icon with 'BadgeInfo'
+import { PlusCircle, Edit, Trash2, MoreVertical, Search, UserPlus, BedDouble, Users, FileText, Phone, Mail, BadgeInfo, Banknote, ShieldAlert } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-
-const TenantFormModal = ({
-  isOpen,
-  setIsOpen,
-  tenant,
-  setAppState,
-  availableUnits,
-  rooms,
-  tenants,
-  ownerState,
-  onTenantCreated,
-}) => {
-  const { toast } = useToast();
-  const [profilePhotoPreview, setProfilePhotoPreview] = useState(tenant?.profilePhotoUrl || null);
-  const [aadhaarCardPreview, setAadhaarCardPreview] = useState(tenant?.aadhaarCardUrl);
-  const [leaseAgreementPreview, setLeaseAgreementPreview] = useState(tenant?.leaseAgreementUrl);
-  const [selectedUnit, setSelectedUnit] = useState(tenant?.unitNo);
-  const [calculatedRent, setCalculatedRent] = useState(0);
-  const isBusiness = ownerState.defaults?.subscriptionPlan === 'business';
-
-  const recalculateRentForRoom = (unitNo, allTenants) => {
-      const room = rooms.find(r => r.number === unitNo);
-      if (!room) return allTenants;
-
-      const tenantsInRoom = allTenants.filter(t => t.unitNo === unitNo);
-      const newRentAmount = tenantsInRoom.length > 0 ? room.rent / tenantsInRoom.length : 0;
-      
-      return allTenants.map(t => 
-        t.unitNo === unitNo ? { ...t, rentAmount: newRentAmount } : t
-      );
-  };
-  
-  useEffect(() => {
-    if (selectedUnit) {
-      const room = rooms.find(r => r.number === selectedUnit);
-      if (room) {
-        // Exclude the current tenant being edited from the count if they are already in that room
-        const currentOccupants = tenants.filter(t => t.unitNo === selectedUnit && t.id !== tenant?.id);
-        const newOccupantCount = currentOccupants.length + 1; // Add the one being added/edited
-        setCalculatedRent(newOccupantCount > 0 ? room.rent / newOccupantCount : room.rent);
-      }
-    } else {
-      setCalculatedRent(0);
+// Helper to get initials from a name
+const getInitials = (name) => {
+    if (!name) return 'U';
+    const names = name.split(' ');
+    if (names.length > 1) {
+        return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
-  }, [selectedUnit, tenant, tenants, rooms]);
+    return names[0][0].toUpperCase();
+};
 
 
-  const handleFileChange = (e, setPreview) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState, availableUnits, rooms, tenants, ownerState, onTenantCreated, activeProperty }) => {
+    const { toast } = useToast();
+    const [profilePhotoPreview, setProfilePhotoPreview] = useState(tenant?.profilePhotoUrl || null);
+    const [aadhaarCardPreview, setAadhaarCardPreview] = useState(tenant?.aadhaarCardUrl);
+    const [leaseAgreementPreview, setLeaseAgreementPreview] = useState(tenant?.leaseAgreementUrl);
+    const [selectedUnit, setSelectedUnit] = useState(tenant?.unitNo);
+    const isBusiness = ownerState.defaults?.subscriptionPlan === 'business';
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const unitNo = formData.get('unitNo');
-    const aadhaar = formData.get('aadhaar');
-
-    if (aadhaar && aadhaar.length !== 12) {
-        toast({
-            variant: "destructive",
-            title: "Invalid Aadhaar Number",
-            description: "Aadhaar number must be exactly 12 digits long."
-        });
-        return;
-    }
-    
-    let newTenantData = null;
-
-    setAppState(prev => {
-        const activePropertyId = prev.activePropertyId;
-        const propertyIndex = prev.properties.findIndex(p => p.id === activePropertyId);
-        if (propertyIndex === -1) return prev;
-
-        const property = prev.properties[propertyIndex];
-
-        const tenantData = {
-            name: formData.get('name'),
-            phone: formData.get('phone'),
-            username: formData.get('username'),
-            unitNo: unitNo,
-            rentAmount: 0, // This will be recalculated
-            dueDate: formData.get('dueDate') ? new Date(formData.get('dueDate')).toISOString() : null,
-            leaseStartDate: formData.get('leaseStartDate') ? new Date(formData.get('leaseStartDate')).toISOString() : null,
-            leaseEndDate: formData.get('leaseEndDate') ? new Date(formData.get('leaseEndDate')).toISOString() : null,
-            aadhaar: aadhaar,
-            profilePhotoUrl: profilePhotoPreview || `https://picsum.photos/seed/${Date.now()}/200`,
-            aadhaarCardUrl: aadhaarCardPreview,
-            leaseAgreementUrl: leaseAgreementPreview,
-        };
-
-        let updatedTenants;
-        const originalUnitNo = tenant?.unitNo;
-
-        if (tenant) { // Editing existing tenant
-            updatedTenants = property.tenants.map(t => t.id === tenant.id ? { ...t, ...tenantData } : t);
-        } else { // Adding new tenant
-            const newTenant = { 
-                ...tenantData, 
-                id: Date.now().toString(), 
-                tenantId: Math.floor(100000 + Math.random() * 900000).toString(), // Generate 6-digit ID
-                createdAt: new Date().toISOString(), 
-                otherCharges: [] 
-            };
-            newTenantData = newTenant; // Capture new tenant data to show ID
-            updatedTenants = [...property.tenants, newTenant];
-        }
-
-        // Recalculate rent for the new/updated unit
-        let tenantsWithNewRent = recalculateRentForRoom(unitNo, updatedTenants);
-        
-        // If tenant moved rooms, recalculate rent for the old room as well
-        if (originalUnitNo && originalUnitNo !== unitNo) {
-            tenantsWithNewRent = recalculateRentForRoom(originalUnitNo, tenantsWithNewRent);
-        }
-        
-        toast({ title: "Success", description: tenant ? "Tenant updated successfully." : "New tenant added." });
-
-        const updatedProperty = { ...property, tenants: tenantsWithNewRent };
-        const updatedProperties = [...prev.properties];
-        updatedProperties[propertyIndex] = updatedProperty;
-
-        return { ...prev, properties: updatedProperties };
+    const [formData, setFormData] = useState({
+        name: tenant?.name || '',
+        phone: tenant?.phone || '',
+        email: tenant?.email || '',
+        aadhaar: tenant?.aadhaar || '',
+        rentAmount: tenant?.rentAmount || '',
+        securityDeposit: tenant?.securityDeposit || '',
+        moveInDate: tenant?.moveInDate || '',
+        profilePhotoUrl: tenant?.profilePhotoUrl || '',
+        aadhaarCardUrl: tenant?.aadhaarCardUrl || '',
+        leaseAgreementUrl: tenant?.leaseAgreementUrl || '',
+        unitNo: tenant?.unitNo || '',
+        roomId: tenant?.roomId || '',
     });
 
-    setIsOpen(false);
-    if (newTenantData) {
-        onTenantCreated(newTenantData);
-    }
-  };
-
-  const formatDateForInput = (dateString) => {
-      if (!dateString || !isValid(parseISO(dateString))) return '';
-      return format(parseISO(dateString), 'yyyy-MM-dd');
-  }
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">{tenant ? 'Edit Tenant' : 'Add New Tenant'}</DialogTitle>
-          <DialogDescription>
-            {tenant ? 'Update the details for this tenant.' : 'Fill in the form to add a new tenant to your property. A unique 6-digit Login ID will be generated for them.'}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto p-1 pr-4">
-           <div className="flex flex-col items-center gap-4 pt-2">
-            <Avatar className="w-24 h-24 ring-2 ring-offset-2 ring-primary ring-offset-background">
-              <AvatarImage src={profilePhotoPreview || undefined} alt="Profile Preview" />
-              <AvatarFallback>{tenant?.name?.charAt(0) || 'U'}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col items-center">
-              <Label htmlFor="profilePhoto" className="cursor-pointer text-sm text-primary hover:underline">Upload Profile Photo</Label>
-              <Input id="profilePhoto" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setProfilePhotoPreview)} className="sr-only" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label htmlFor="name">Full Name</Label><Input id="name" name="name" defaultValue={tenant?.name} required /></div>
-            <div><Label htmlFor="phone">Phone Number (Login Username)</Label><Input id="phone" name="phone" defaultValue={tenant?.phone} type="tel" required /></div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label htmlFor="username">Email Address</Label><Input id="username" name="username" defaultValue={tenant?.username} type="email" required /></div>
-            {tenant ? (
-                <div>
-                  <Label>Login ID</Label>
-                  <Input type="text" value={tenant.tenantId} readOnly disabled className="bg-muted tracking-widest" />
-                </div>
-            ) : (
-                <div className="flex items-center space-x-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
-                    <ShieldAlert className="h-5 w-5 text-amber-600" />
-                    <p className="text-xs text-amber-800">
-                        A unique 6-digit Login ID will be auto-generated upon creation.
-                    </p>
-                </div>
-            )}
-          </div>
-
-          <div className="border-t pt-4 space-y-4">
-            <h3 className="font-semibold">Rental Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="unitNo">Unit Number</Label>
-                <Select name="unitNo" defaultValue={tenant?.unitNo} required onValueChange={setSelectedUnit}>
-                  <SelectTrigger><SelectValue placeholder="Select a unit" /></SelectTrigger>
-                  <SelectContent>
-                    {tenant && !availableUnits.some(u => u.roomNumber === tenant.unitNo) && <SelectItem value={tenant.unitNo}>{tenant.unitNo} (Current, Full)</SelectItem>}
-                    {availableUnits.map(unit => <SelectItem key={unit.roomNumber} value={unit.roomNumber}>Room {unit.roomNumber} ({unit.occupants}/{unit.capacity})</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-               <div>
-                <Label htmlFor="rentAmount">Per-Person Rent (Calculated)</Label>
-                <Input id="rentAmount" name="rentAmount" type="text" value={`₹${calculatedRent.toFixed(2)}`} required readOnly className="bg-muted"/>
-                <p className="text-xs text-muted-foreground mt-1">Rent is auto-divided among tenants in the room.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div><Label htmlFor="dueDate">Rent Due Date</Label><Input id="dueDate" name="dueDate" type="date" defaultValue={formatDateForInput(tenant?.dueDate)} required /></div>
-                <div><Label htmlFor="leaseStartDate">Lease Start Date</Label><Input id="leaseStartDate" name="leaseStartDate" type="date" defaultValue={formatDateForInput(tenant?.leaseStartDate)} /></div>
-                <div><Label htmlFor="leaseEndDate">Lease End Date</Label><Input id="leaseEndDate" name="leaseEndDate" type="date" defaultValue={formatDateForInput(tenant?.leaseEndDate)} /></div>
-            </div>
-          </div>
-
-          <div className="border-t pt-4 space-y-4">
-             <div className="flex items-center gap-2">
-                <h3 className="font-semibold">Documents</h3>
-                {!isBusiness && <Badge className="bg-purple-100 text-purple-700 border-purple-200">Business Feature</Badge>}
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><Label htmlFor="aadhaar">Aadhaar Card Number</Label><Input id="aadhaar" name="aadhaar" defaultValue={tenant?.aadhaar} required type="number" /></div>
-                <div className="space-y-1">
-                  <Label htmlFor="aadhaarCard">Aadhaar Card Upload</Label>
-                  <Input id="aadhaarCard" name="aadhaarCard" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, setAadhaarCardPreview)} disabled={!isBusiness} />
-                  {aadhaarCardPreview && <a href={aadhaarCardPreview} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline mt-2 inline-block">View Uploaded Aadhaar</a>}
-                   {!isBusiness && <p className="text-xs text-muted-foreground">Available on the Business plan.</p>}
-                </div>
-             </div>
-             <div className="space-y-1">
-                <Label htmlFor="leaseAgreement">Lease Agreement Upload</Label>
-                <Input id="leaseAgreement" name="leaseAgreement" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, setLeaseAgreementPreview)} disabled={!isBusiness} />
-                {leaseAgreementPreview && <a href={leaseAgreementPreview} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline mt-2 inline-block">View Uploaded Lease</a>}
-                 {!isBusiness && <p className="text-xs text-muted-foreground">Available on the Business plan.</p>}
-             </div>
-          </div>
-
-          <DialogFooter className="pt-4 !mt-8">
-             <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>Cancel</Button>
-            <Button type="submit" className="btn-gradient-glow">{tenant ? 'Save Changes' : 'Create Tenant'}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const TenantIdDialog = ({ tenant, isOpen, setIsOpen }) => {
-    const { toast } = useToast();
-    if (!tenant) return null;
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(tenant.tenantId);
-        toast({ title: 'Copied!', description: 'Tenant ID copied to clipboard.' });
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Tenant Created Successfully!</DialogTitle>
-                    <DialogDescription>
-                        Please share the following Login ID with the tenant. They will need it to log in.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="py-4 text-center">
-                    <p className="text-sm text-muted-foreground">Login ID for <span className="font-semibold text-foreground">{tenant.name}</span></p>
-                    <div className="flex items-center justify-center gap-2 mt-2">
-                        <p className="text-3xl font-bold tracking-widest bg-muted p-3 rounded-md">{tenant.tenantId}</p>
-                        <Button variant="ghost" size="icon" onClick={handleCopy}>
-                            <Copy className="h-5 w-5"/>
-                        </Button>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button onClick={() => setIsOpen(false)}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-};
-
-const DeleteConfirmationDialog = ({ tenant, isOpen, setIsOpen, setAppState }) => {
-    const { toast } = useToast();
-
-    if(!tenant) return null;
-
-    const handleDelete = () => {
-        setAppState(prev => {
-            const activePropertyId = prev.activePropertyId;
-            const propertyIndex = prev.properties.findIndex(p => p.id === activePropertyId);
-            if (propertyIndex === -1) return prev;
-
-            const property = prev.properties[propertyIndex];
-            const { rooms } = property;
-            const roomToUpdate = rooms.find(r => r.number === tenant.unitNo);
-
-            let updatedTenants = property.tenants.filter(t => t.id !== tenant.id);
-            const updatedPayments = property.payments.filter(p => p.tenantId !== tenant.id);
-            
-            if (roomToUpdate) {
-                const tenantsInRoom = updatedTenants.filter(t => t.unitNo === roomToUpdate.number);
-                if (tenantsInRoom.length > 0) {
-                    const newRentAmount = roomToUpdate.rent / tenantsInRoom.length;
-                    updatedTenants = updatedTenants.map(t => 
-                        t.unitNo === roomToUpdate.number ? { ...t, rentAmount: newRentAmount } : t
-                    );
-                }
-            }
-            
-            toast({ title: "Success", description: "Tenant and associated data deleted." });
-
-            const updatedProperty = { ...property, tenants: updatedTenants, payments: updatedPayments };
-            const updatedProperties = [...prev.properties];
-            updatedProperties[propertyIndex] = updatedProperty;
-
-            return {
-                ...prev,
-                properties: updatedProperties,
+    const handleFileChange = (e, setPreview) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreview(reader.result);
+                // In a real app, you would upload this file and get a URL.
+                // For now, we'll just use the base64 data URL for preview.
             };
-        });
-        setIsOpen(false);
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const recalculateRentForRoom = (unitNo, allTenantsInProperty) => {
+        const room = rooms.find(r => r.number === unitNo);
+        if (!room) return allTenantsInProperty;
+
+        const tenantsInRoom = allTenantsInProperty.filter(t => t.unitNo === unitNo && t.id !== tenant?.id);
+        const newTenantCount = tenantsInRoom.length + 1;
+        const newRentAmount = room.rent / newTenantCount;
+
+        return allTenantsInProperty.map(t => 
+            t.unitNo === unitNo ? { ...t, rentAmount: newRentAmount } : t
+        );
     };
 
-    return (
-        <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Are you sure you want to delete tenant "{tenant.name}"? This will also remove all associated payment records and recalculate rent for any remaining tenants in the room. This action cannot be undone.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-    );
-};
-
-const TenantDetailsModal = ({ tenant, room, isOpen, setIsOpen }) => {
-  if (!tenant) return null;
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <div className="flex flex-col items-center text-center gap-4">
-             <Avatar className="w-24 h-24 ring-2 ring-offset-2 ring-primary ring-offset-background">
-                <AvatarImage src={tenant.profilePhotoUrl || undefined} alt={tenant.name} data-ai-hint="person face" />
-                <AvatarFallback>{tenant.name?.charAt(0) || 'T'}</AvatarFallback>
-             </Avatar>
-            <DialogTitle className="text-2xl">{tenant.name}</DialogTitle>
-          </div>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="grid grid-cols-1 gap-3 text-sm">
-            <div className="flex items-center gap-3 p-2 rounded-md bg-muted/50"><KeyRound className="w-4 h-4 text-muted-foreground" /><span>Login ID: <span className="font-bold tracking-wider">{tenant.tenantId}</span></span></div>
-            <div className="flex items-center gap-3 p-2 rounded-md bg-muted/50"><Mail className="w-4 h-4 text-muted-foreground" /><span>{tenant.username}</span></div>
-            <div className="flex items-center gap-3 p-2 rounded-md bg-muted/50"><Phone className="w-4 h-4 text-muted-foreground" /><span>{tenant.phone}</span></div>
-            <div className="flex items-center gap-3 p-2 rounded-md bg-muted/50"><Home className="w-4 h-4 text-muted-foreground" /><span>Room {tenant.unitNo} (Capacity: {room?.capacity})</span></div>
-            <div className="flex items-center gap-3 p-2 rounded-md bg-muted/50"><span>Rent: ₹{tenant.rentAmount?.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / month</span></div>
-            <div className="flex items-center gap-3 p-2 rounded-md bg-muted/50"><IdCard className="w-4 h-4 text-muted-foreground" /><span>Aadhaar: XXXX-XXXX-{(tenant.aadhaar || '').slice(-4)}</span></div>
-            <div className="flex items-center gap-3 p-2 rounded-md bg-muted/50"><CalendarIcon className="w-4 h-4 text-muted-foreground" /><span>Lease: {tenant.leaseStartDate ? format(parseISO(tenant.leaseStartDate), 'dd MMM yyyy') : 'N/A'} to {tenant.leaseEndDate ? format(parseISO(tenant.leaseEndDate), 'dd MMM yyyy') : 'N/A'}</span></div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const NotificationModal = ({ tenant, isOpen, setIsOpen, setAppState }) => {
-    const { toast } = useToast();
-    const [message, setMessage] = useState('');
-
-    if(!tenant) return null;
-
-    const handleSend = () => {
-        if (!message.trim()) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Notification message cannot be empty.' });
+    const handleSubmit = () => {
+        if (!formData.name || !formData.phone || !formData.unitNo) {
+            toast({ variant: "destructive", title: "Missing Fields", description: "Name, Phone, and Unit Number are required." });
             return;
         }
 
-        const newNotification = {
-            id: Date.now().toString(),
-            tenantId: tenant.id,
-            message: message,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-        };
-        
-        setAppState(prev => {
-            const activePropertyId = prev.activePropertyId;
-            const propertyIndex = prev.properties.findIndex(p => p.id === activePropertyId);
-            if (propertyIndex === -1) return prev;
-
-            const property = prev.properties[propertyIndex];
-            const updatedProperty = {
-                ...property,
-                notifications: [...(property.notifications || []), newNotification]
+        setAppState(prevOwnerState => {
+            const newTenant = {
+                id: tenant?.id || `t_${Date.now()}`,
+                ...formData,
+                profilePhotoUrl: profilePhotoPreview, // Using preview as URL for now
+                aadhaarCardUrl: aadhaarCardPreview,
+                leaseAgreementUrl: leaseAgreementPreview,
             };
+
+            const updatedProperties = prevOwnerState.properties.map(p => {
+                if (p.id === activeProperty.id) {
+                    let updatedTenantsInProperty;
+                    if (tenant) { // Editing existing tenant
+                        updatedTenantsInProperty = p.tenants.map(t => t.id === tenant.id ? newTenant : t);
+                    } else { // Adding new tenant
+                        updatedTenantsInProperty = [...(p.tenants || []), newTenant];
+                    }
+                    
+                    const room = rooms.find(r => r.number === newTenant.unitNo);
+                    if (room?.rentSharing) {
+                        updatedTenantsInProperty = recalculateRentForRoom(newTenant.unitNo, updatedTenantsInProperty);
+                    }
+
+                    return { ...p, tenants: updatedTenantsInProperty };
+                }
+                return p;
+            });
             
-            const updatedProperties = [...prev.properties];
-            updatedProperties[propertyIndex] = updatedProperty;
-
-            return { ...prev, properties: updatedProperties };
+            return { ...prevOwnerState, properties: updatedProperties };
         });
-        
-        toast({ title: "Success", description: `Notification sent to ${tenant.name}.` });
-        setIsOpen(false);
-        setMessage('');
-    };
 
-    const sendRentReminder = () => {
-        const reminderMessage = `Hi ${tenant.name}, this is a friendly reminder that your rent payment is due soon. Please make the payment at your earliest convenience.`;
-        setMessage(reminderMessage);
-    }
+        toast({ title: "Success", description: `Tenant ${tenant ? 'updated' : 'added'} successfully.` });
+        setIsOpen(false);
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle>Send Notification to {tenant.name}</DialogTitle>
-                    <DialogDescription>
-                        Type your message below or send a pre-defined rent reminder.
-                    </DialogDescription>
+                    <DialogTitle>{tenant ? 'Edit Tenant' : 'Add New Tenant'}</DialogTitle>
+                    <DialogDescription>Fill in the details for the tenant. Click save when you're done.</DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-4">
-                    <Button variant="outline" onClick={sendRentReminder} className="w-full">
-                        Generate Rent Reminder
-                    </Button>
-                    <div>
-                        <Label htmlFor="notification-message" className="sr-only">Message</Label>
-                        <Textarea 
-                            id="notification-message"
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            placeholder="e.g., Please collect your package from the office..."
-                            rows={5}
-                        />
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
+                    {/* Column 1: Profile Photo & Basic Info */}
+                    <div className="col-span-1 space-y-4">
+                        <div className="flex flex-col items-center space-y-2">
+                            <Avatar className="h-32 w-32 border-4 border-slate-700">
+                                <AvatarImage src={profilePhotoPreview} />
+                                <AvatarFallback className="text-4xl bg-slate-700">{getInitials(formData.name)}</AvatarFallback>
+                            </Avatar>
+                            <Input id="profile-photo-upload" type="file" accept="image/*" className="hidden" onChange={e => handleFileChange(e, setProfilePhotoPreview)} />
+                            <Label htmlFor="profile-photo-upload" className="cursor-pointer text-indigo-400 hover:text-indigo-300">Upload Photo</Label>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Full Name</Label>
+                            <Input id="name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="John Doe" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="phone">Phone Number</Label>
+                            <Input id="phone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+91 12345 67890" />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="email">Email Address</Label>
+                            <Input id="email" value={formData.email} type="email" onChange={e => setFormData({...formData, email: e.target.value})} placeholder="john.d@example.com" />
+                        </div>
+                    </div>
+
+                    {/* Column 2: Room & Financial Info */}
+                    <div className="col-span-1 space-y-4 border-l border-r border-slate-800 px-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="unitNo">Room / Unit</Label>
+                            <select id="unitNo" value={formData.unitNo} onChange={e => setFormData({...formData, unitNo: e.target.value, roomId: rooms.find(r=>r.number === e.target.value)?.id})} className="w-full bg-slate-800 border-slate-600 rounded p-2">
+                                <option value="">Select a Unit</option>
+                                {availableUnits.map(unit => <option key={unit.id} value={unit.number}>{unit.name} (Capacity: {unit.capacity})</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="rentAmount">Rent Amount (₹)</Label>
+                            <Input id="rentAmount" type="number" value={formData.rentAmount} onChange={e => setFormData({...formData, rentAmount: e.target.value})} placeholder="e.g., 15000" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="securityDeposit">Security Deposit (₹)</Label>
+                            <Input id="securityDeposit" type="number" value={formData.securityDeposit} onChange={e => setFormData({...formData, securityDeposit: e.target.value})} placeholder="e.g., 30000" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="moveInDate">Move-in Date</Label>
+                            <Input id="moveInDate" type="date" value={formData.moveInDate} onChange={e => setFormData({...formData, moveInDate: e.target.value})} />
+                        </div>
+                    </div>
+
+                    {/* Column 3: Documents */}
+                    <div className="col-span-1 space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="aadhaar">Aadhaar Number</Label>
+                            <Input id="aadhaar" value={formData.aadhaar} onChange={e => setFormData({...formData, aadhaar: e.target.value})} placeholder="1234 5678 9012" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Aadhaar Card Scan</Label>
+                            {aadhaarCardPreview ? <img src={aadhaarCardPreview} alt="Aadhaar Preview" className="rounded-lg h-24 w-auto"/> : <div className="h-24 bg-slate-800 rounded-lg flex items-center justify-center"><BadgeInfo className="text-slate-500"/></div> }
+                            <Input id="aadhaar-upload" type="file" accept="image/*,application/pdf" className="hidden" onChange={e => handleFileChange(e, setAadhaarCardPreview)} />
+                            <Label htmlFor="aadhaar-upload" className="cursor-pointer text-indigo-400 hover:text-indigo-300">Upload Aadhaar</Label>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Lease Agreement</Label>
+                             {leaseAgreementPreview ? <img src={leaseAgreementPreview} alt="Lease Preview" className="rounded-lg h-24 w-auto"/> : <div className="h-24 bg-slate-800 rounded-lg flex items-center justify-center"><FileText className="text-slate-500"/></div> }
+                            <Input id="lease-upload" type="file" accept="image/*,application/pdf" className="hidden" onChange={e => handleFileChange(e, setLeaseAgreementPreview)} />
+                            <Label htmlFor="lease-upload" className={isBusiness ? "cursor-pointer text-indigo-400 hover:text-indigo-300" : "text-slate-500 cursor-not-allowed"}>{isBusiness ? 'Upload Lease' : 'Upload Lease (Business Plan)'}</Label>
+                        </div>
                     </div>
                 </div>
+
                 <DialogFooter>
-                    <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>Cancel</Button>
-                    <Button onClick={handleSend}>Send Notification</Button>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button onClick={handleSubmit}>Save Tenant</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -498,240 +201,155 @@ const NotificationModal = ({ tenant, isOpen, setIsOpen, setAppState }) => {
 };
 
 
-export default function Tenants({ appState, setAppState, ownerState }) {
-  const { tenants = [], rooms = [], payments = [], notifications = [] } = appState;
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
-  const [isTenantIdModalOpen, setIsTenantIdModalOpen] = useState(false);
-  const [newlyCreatedTenant, setNewlyCreatedTenant] = useState(null);
-  const [selectedTenant, setSelectedTenant] = useState(null);
+export default function Tenants({ appState: activeProperty, setAppState, ownerState }) {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTenant, setEditingTenant] = useState(null);
+    const [tenantToDelete, setTenantToDelete] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
-  const availableUnits = useMemo(() => {
-    const occupantsCount = tenants.reduce((acc, tenant) => {
-      if(tenant.unitNo) {
-        acc[tenant.unitNo] = (acc[tenant.unitNo] || 0) + 1;
-      }
-      return acc;
-    }, {});
+    const tenants = activeProperty.tenants || [];
+    const rooms = activeProperty.rooms || [];
 
-    return rooms
-      .map(room => ({
-        roomNumber: room.number,
-        capacity: room.capacity,
-        occupants: occupantsCount[room.number] || 0,
-      }))
-      .filter(room => room.occupants < room.capacity);
-  }, [tenants, rooms]);
+    const openModal = (tenant = null) => {
+        setEditingTenant(tenant);
+        setIsModalOpen(true);
+    };
 
-  const tenantsByRoom = useMemo(() => {
-    const grouped = {};
-    const thisMonth = new Date().getMonth();
-    const thisYear = new Date().getFullYear();
+    const handleDeleteTenant = (tenantId) => {
+        setAppState(prevOwnerState => {
+            const updatedProperties = prevOwnerState.properties.map(p => {
+                if (p.id === activeProperty.id) {
+                    const updatedTenants = p.tenants.filter(t => t.id !== tenantId);
+                    return { ...p, tenants: updatedTenants };
+                }
+                return p;
+            });
+            return { ...prevOwnerState, properties: updatedProperties };
+        });
+        setTenantToDelete(null);
+    };
 
-    rooms.forEach(room => {
-        grouped[room.number] = {
-            tenants: [],
-            roomDetails: room,
-        };
-    });
-
-    tenants.forEach(tenant => {
-        const room = rooms.find(r => r.number === tenant.unitNo);
-        if (room) {
-            const monthlyCharges = (tenant.otherCharges || [])
-              .filter(c => new Date(c.date).getMonth() === thisMonth && new Date(c.date).getFullYear() === thisYear)
-              .reduce((sum, c) => sum + c.amount, 0);
-
-            const monthlyBill = tenant.rentAmount + monthlyCharges;
-            
-            if (!grouped[tenant.unitNo]) {
-                grouped[tenant.unitNo] = { tenants: [], roomDetails: room };
-            }
-            grouped[tenant.unitNo].tenants.push({ ...tenant, monthlyBill });
-        }
-    });
-
-    return Object.fromEntries(
-        Object.entries(grouped).sort(([roomA], [roomB]) => roomA.localeCompare(roomB, undefined, { numeric: true }))
+    const filteredTenants = tenants.filter(t => 
+        t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        t.phone.includes(searchTerm) || 
+        (t.unitNo && t.unitNo.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [tenants, rooms]);
-  
-  const getRentStatus = (tenant) => {
-    if (!tenant.dueDate || !isValid(parseISO(tenant.dueDate))) {
-        return { label: 'Awaiting', color: 'secondary' };
+
+    const availableUnits = useMemo(() => {
+        const tenantsPerUnit = tenants.reduce((acc, tenant) => {
+            acc[tenant.unitNo] = (acc[tenant.unitNo] || 0) + 1;
+            return acc;
+        }, {});
+
+        return rooms.filter(room => {
+            const currentOccupancy = tenantsPerUnit[room.number] || 0;
+            return currentOccupancy < room.capacity;
+        });
+    }, [rooms, tenants]);
+    
+    const stats = {
+      totalTenants: tenants.length,
+      occupiedRooms: [...new Set(tenants.map(t => t.unitNo))].length,
+      pendingSecurity: tenants.filter(t => !t.securityDeposit || t.securityDeposit <= 0).length
     }
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const dueDate = parseISO(tenant.dueDate);
-    const thisMonth = today.getMonth();
-    const thisYear = today.getFullYear();
-    
-    const room = rooms.find(r => r.number === tenant.unitNo);
-    if (!room) return { label: 'Awaiting', color: 'secondary' };
 
-    const monthlyCharges = (tenant.otherCharges || [])
-      .filter(c => new Date(c.date).getMonth() === thisMonth && new Date(c.date).getFullYear() === thisYear)
-      .reduce((sum, c) => sum + c.amount, 0);
-    
-    const totalDue = tenant.rentAmount + monthlyCharges;
+    return (
+        <div className="space-y-6">
+            <Card>
+                 <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Manage Tenants</CardTitle>
+                        <CardDescription>View, add, edit, or remove tenants from your property.</CardDescription>
+                    </div>
+                    <Button onClick={() => openModal()}><UserPlus className="mr-2 h-4 w-4" /> Add Tenant</Button>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                       <div className="bg-slate-800/50 p-4 rounded-lg flex items-center gap-4 border border-white/10">
+                          <div className="bg-slate-900/50 p-3 rounded-lg border border-white/10 text-indigo-400"><Users className="h-5 w-5"/></div>
+                          <div><p className="text-sm text-slate-400">Total Tenants</p><p className="text-xl font-bold">{stats.totalTenants}</p></div>
+                       </div>
+                       <div className="bg-slate-800/50 p-4 rounded-lg flex items-center gap-4 border border-white/10">
+                          <div className="bg-slate-900/50 p-3 rounded-lg border border-white/10 text-green-400"><BedDouble className="h-5 w-5"/></div>
+                          <div><p className="text-sm text-slate-400">Rooms Occupied</p><p className="text-xl font-bold">{stats.occupiedRooms} / {rooms.length}</p></div>
+                       </div>
+                       <div className="bg-slate-800/50 p-4 rounded-lg flex items-center gap-4 border border-white/10">
+                          <div className="bg-slate-900/50 p-3 rounded-lg border border-white/10 text-amber-400"><ShieldAlert className="h-5 w-5"/></div>
+                          <div><p className="text-sm text-slate-400">Pending Deposits</p><p className="text-xl font-bold">{stats.pendingSecurity}</p></div>
+                       </div>
+                    </div>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                        <Input 
+                            placeholder="Search by name, phone, or unit..."
+                            className="pl-10 w-full"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
 
-    const paidThisMonth = payments
-      .filter(p => p.tenantId === tenant.id && new Date(p.date).getMonth() === thisMonth && new Date(p.date).getFullYear() === thisYear)
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    if (paidThisMonth >= totalDue && totalDue > 0) return { label: 'Paid', color: 'success' };
-    
-    const daysDiff = differenceInDays(today, dueDate);
-    if (daysDiff > 0 && totalDue > 0) return { label: 'Overdue', color: 'destructive' };
-    
-    return { label: 'Upcoming', color: 'warning' };
-  };
-
-  const handleOpenForm = (tenant) => {
-    setSelectedTenant(tenant);
-    setIsFormModalOpen(true);
-  };
-  
-  const handleViewDetails = (tenant) => {
-    setSelectedTenant(tenant);
-    setIsDetailsModalOpen(true);
-  };
-  
-  const handleDeleteTenant = (tenant) => {
-    setSelectedTenant(tenant);
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleNotifyTenant = (tenant) => {
-    setSelectedTenant(tenant);
-    setIsNotifyModalOpen(true);
-  };
-  
-  const handleTenantCreated = (newTenant) => {
-      setNewlyCreatedTenant(newTenant);
-      setIsTenantIdModalOpen(true);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-        <div className="space-y-1">
-          <h2 className="text-2xl md:text-3xl font-bold font-headline">Tenant Management</h2>
-          <p className="text-muted-foreground">A complete list of all tenants in your properties.</p>
-        </div>
-        <Button onClick={() => handleOpenForm(null)} className="btn-gradient-glow w-full md:w-auto">
-          <Plus className="mr-2 h-4 w-4" /> Add Tenant
-        </Button>
-      </div>
-
-       {tenants.length === 0 && Object.keys(tenantsByRoom).length === 0 ? (
-        <Card className="glass-card text-center text-muted-foreground py-16 border-2 border-dashed rounded-2xl">
-            <Users className="mx-auto h-16 w-16 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Tenants Found</h3>
-            <p className="mb-4">Get started by adding your first tenant.</p>
-            <Button onClick={() => handleOpenForm(null)}>Add Your First Tenant</Button>
-        </Card>
-      ) : (
-      <div className="space-y-8">
-        {Object.values(tenantsByRoom).map(({ roomDetails, tenants: roomTenants }) => (
-          <Card key={roomDetails.number} className="glass-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Home className="text-primary"/>
-                Room {roomDetails.number}
-                <Badge variant="secondary">{roomTenants.length} Tenant(s)</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[250px]">Name</TableHead>
-                      <TableHead>Monthly Bill</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right w-[50px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {roomTenants.length > 0 ? roomTenants.map(tenant => {
-                      const status = getRentStatus(tenant);
-                      return (
-                        <TableRow key={tenant.id} className="hover:bg-muted/50">
-                          <TableCell className="font-medium">
-                              <div className="flex items-center gap-3">
-                                  <Avatar className="w-10 h-10 border">
-                                      <AvatarImage src={tenant.profilePhotoUrl || undefined} alt={tenant.name} data-ai-hint="person face" />
-                                      <AvatarFallback>{tenant.name?.charAt(0)}</AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <span className="font-semibold">{tenant.name}</span>
-                                    <p className="text-sm text-muted-foreground">{tenant.phone}</p>
-                                  </div>
-                              </div>
-                          </TableCell>
-                          <TableCell>₹{tenant.monthlyBill ? tenant.monthlyBill.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'}</TableCell>
-                          <TableCell>{tenant.dueDate && isValid(parseISO(tenant.dueDate)) ? format(parseISO(tenant.dueDate), 'dd MMM yyyy') : 'N/A'}</TableCell>
-                          <TableCell>
-                            <Badge variant={status.color} className={cn(
-                              status.color === 'success' && 'bg-green-100 text-green-800 border-green-200',
-                              status.color === 'destructive' && 'bg-red-100 text-red-800 border-red-200',
-                              status.color === 'warning' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                              status.color === 'secondary' && 'bg-gray-100 text-gray-800 border-gray-200',
-                            )}>
-                                {status.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTenants.map(tenant => (
+                    <Card key={tenant.id} className="bg-slate-800/50 border-white/10 flex flex-col">
+                        <CardHeader className="flex flex-row items-start gap-4">
+                            <Avatar className="h-16 w-16 border-2 border-slate-700">
+                                <AvatarImage src={tenant.profilePhotoUrl} alt={tenant.name} />
+                                <AvatarFallback className="text-xl bg-slate-700">{getInitials(tenant.name)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                                <CardTitle className="text-xl text-white">{tenant.name}</CardTitle>
+                                <CardDescription className="text-indigo-400 font-semibold">{rooms.find(r => r.id === tenant.roomId)?.name || 'No Room Assigned'}</CardDescription>
+                            </div>
                             <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleViewDetails(tenant)}>
-                                  <ViewIcon className="mr-2 h-4 w-4" /> View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleNotifyTenant(tenant)}>
-                                  <MessageSquare className="mr-2 h-4 w-4" /> Send Notification
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenForm(tenant)}>
-                                  <Edit className="mr-2 h-4 w-4" /> Edit Tenant
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDeleteTenant(tenant)} className="text-red-500 focus:text-red-500">
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Tenant
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon"><MoreVertical className="h-5 w-5"/></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={() => openModal(tenant)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setTenantToDelete(tenant)} className="text-red-500"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
                             </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }) : (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                This room is empty. Assign a tenant to this room.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      )}
-      
-      {isFormModalOpen && <TenantFormModal isOpen={isFormModalOpen} setIsOpen={setIsFormModalOpen} tenant={selectedTenant} setAppState={setAppState} availableUnits={availableUnits} rooms={rooms} tenants={tenants} ownerState={ownerState} onTenantCreated={handleTenantCreated} />}
-      {isTenantIdModalOpen && <TenantIdDialog isOpen={isTenantIdModalOpen} setIsOpen={setIsTenantIdModalOpen} tenant={newlyCreatedTenant} />}
-      {isDeleteModalOpen && <DeleteConfirmationDialog isOpen={isDeleteModalOpen} setIsOpen={setIsDeleteModalOpen} tenant={selectedTenant} setAppState={setAppState} />}
-      {isDetailsModalOpen && <TenantDetailsModal isOpen={isDetailsModalOpen} setIsOpen={setIsDetailsModalOpen} tenant={selectedTenant} room={rooms.find(r => r.number === selectedTenant?.unitNo) || null} />}
-      {isNotifyModalOpen && <NotificationModal isOpen={isNotifyModalOpen} setIsOpen={setIsNotifyModalOpen} tenant={selectedTenant} setAppState={setAppState} />}
-    </div>
-  );
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-sm flex-1">
+                            <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-slate-400"/><span>{tenant.phone}</span></div>
+                            <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-slate-400"/><span>{tenant.email || 'Not provided'}</span></div>
+                            <div className="flex items-center gap-3"><BadgeInfo className="h-4 w-4 text-slate-400"/><span>Aadhaar: {tenant.aadhaar || 'Not provided'}</span></div>
+                            <div className="flex items-center gap-3 text-green-400"><Banknote className="h-4 w-4"/><span>Rent: ₹{tenant.rentAmount || 'N/A'}</span></div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+
+            {isModalOpen && (
+                <TenantFormModal 
+                    isOpen={isModalOpen} 
+                    setIsOpen={setIsModalOpen} 
+                    tenant={editingTenant}
+                    setAppState={setAppState}
+                    availableUnits={availableUnits}
+                    rooms={rooms}
+                    tenants={tenants}
+                    ownerState={ownerState}
+                    activeProperty={activeProperty}
+                />
+            )}
+
+            {tenantToDelete && (
+                <Dialog open={!!tenantToDelete} onOpenChange={() => setTenantToDelete(null)}>
+                    <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                        <DialogHeader>
+                            <DialogTitle>Are you sure?</DialogTitle>
+                            <DialogDescription>This will permanently delete {tenantToDelete.name} and all their associated data. This action cannot be undone.</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setTenantToDelete(null)}>Cancel</Button>
+                            <Button variant="destructive" onClick={() => handleDeleteTenant(tenantToDelete.id)}>Delete Tenant</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
+        </div>
+    );
 }

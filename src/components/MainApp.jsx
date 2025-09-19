@@ -72,8 +72,7 @@ import { useAppTheme } from "@/contexts/ThemeContext";
 import OwnerProfile from "./OwnerProfile";
 import Properties from "./Properties";
 import PendingApprovals from "./PendingApprovals";
-import MaintenanceRequests from "./MaintenanceRequests"; // Import the new component
-
+import MaintenanceRequests from "./MaintenanceRequests";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, plan: 'standard', group: 'main' },
@@ -96,15 +95,14 @@ const TABS = [
 
 const TAB_GROUPS = ['main', 'management', 'operations', 'analytics'];
 
-
 function AppContent({ activeTab, setActiveTab, ownerState, setOwnerState, user, activeProperty, setActivePropertyId, ownerId }) {
   const { isMobile } = useSidebar();
   const { setTheme, theme } = useTheme();
   const { theme: appTheme } = useAppTheme();
   
   const renderTabContent = () => {
-    // Pass activeProperty to all components that need it
-    const props = { appState: ownerState, setAppState: setOwnerState, user, setActiveTab, ownerState, ownerId, activeProperty };
+    const props = { appState: activeProperty, setAppState: setOwnerState, user, setActiveTab, ownerId, ownerState };
+
     switch (activeTab) {
       case "dashboard":
         return <ProfessionalDashboard {...props} />;
@@ -123,7 +121,7 @@ function AppContent({ activeTab, setActiveTab, ownerState, setOwnerState, user, 
       case "payments":
         return <Payments {...props} />;
       case "requests":
-        return <MaintenanceRequests {...props} />;
+        return <MaintenanceRequests {...props} appState={ownerState} />;
       case "approvals":
         return <PendingApprovals {...props} />;
       case "electricity":
