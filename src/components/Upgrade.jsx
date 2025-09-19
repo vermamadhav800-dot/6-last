@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { useAppTheme } from '@/contexts/ThemeContext';
 import CreditCardGateway from './CreditCardGateway';
-import UpgradeSuccessAnimation from './UpgradeSuccessAnimation';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -225,7 +224,6 @@ export default function Upgrade({ appState, setAppState, onUpgradeSuccess }) {
     
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [showPayment, setShowPayment] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
     const [billingCycle, setBillingCycle] = useState('monthly');
 
     const currentPlan = appState.defaults?.subscriptionPlan || 'standard';
@@ -251,7 +249,6 @@ export default function Upgrade({ appState, setAppState, onUpgradeSuccess }) {
 
     const handleUpgradeSuccess = (plan) => {
         setShowPayment(false);
-        setShowSuccess(true);
         
         setAppState(prev => ({
             ...prev,
@@ -264,16 +261,9 @@ export default function Upgrade({ appState, setAppState, onUpgradeSuccess }) {
         });
         
         if (onUpgradeSuccess) {
-           setTimeout(() => {
-                setShowSuccess(false);
-                onUpgradeSuccess(plan);
-           }, 3500); // Allow time for animation before callback
+           onUpgradeSuccess(plan);
         }
     };
-
-    if (showSuccess) {
-        return <UpgradeSuccessAnimation plan={selectedPlan} onComplete={() => setShowSuccess(false)} />;
-    }
 
     return (
         <TooltipProvider>

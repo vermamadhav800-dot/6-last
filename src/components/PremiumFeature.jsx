@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -11,8 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 const PremiumFeature = ({ 
   children, 
   feature, 
-  requiredPlan = 'plus', 
-  currentPlan = 'free',
+  requiredPlan = 'pro', 
+  currentPlan = 'standard',
   onUpgrade,
   className = ""
 }) => {
@@ -20,15 +21,12 @@ const PremiumFeature = ({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const planLevels = {
-    free: 0,
     standard: 0,
-    plus: 1,
     pro: 1,
-    premium: 2,
     business: 2
   };
 
-  const isLocked = planLevels[currentPlan] < planLevels[requiredPlan];
+  const isLocked = (planLevels[currentPlan] ?? 0) < (planLevels[requiredPlan] ?? 1);
 
   const handleUpgradeClick = () => {
     if (onUpgrade) {
@@ -40,16 +38,16 @@ const PremiumFeature = ({
 
   const getPlanIcon = (plan) => {
     switch (plan) {
-      case 'plus': return Star;
-      case 'premium': return Crown;
+      case 'pro': return Star;
+      case 'business': return Crown;
       default: return Lock;
     }
   };
 
   const getPlanColor = (plan) => {
     switch (plan) {
-      case 'plus': return 'from-blue-500 to-blue-600';
-      case 'premium': return 'from-purple-500 to-purple-600';
+      case 'pro': return 'from-blue-500 to-blue-600';
+      case 'business': return 'from-purple-500 to-purple-600';
       default: return 'from-gray-500 to-gray-600';
     }
   };
@@ -77,8 +75,8 @@ const PremiumFeature = ({
           </div>
           
           <div className="space-y-1">
-            <p className="text-slate-300 text-sm">
-              {feature.description || `This feature requires ${requiredPlan} plan`}
+            <p className="text-slate-300 text-sm capitalize">
+              {feature?.description || `This feature requires the ${requiredPlan} plan`}
             </p>
             <Button
               onClick={handleUpgradeClick}
@@ -108,27 +106,27 @@ const PremiumFeature = ({
                 })()}
               </div>
               
-              <h3 className="text-2xl font-bold text-white">Upgrade Required</h3>
+              <h3 className="text-2xl font-bold text-white capitalize">Upgrade to {requiredPlan}</h3>
               <p className="text-slate-300">
-                Unlock this feature and many more with the {requiredPlan} plan
+                Unlock this feature and many more with the {requiredPlan} plan.
               </p>
               
               <div className="space-y-2 text-left">
                 <div className="flex items-center space-x-2 text-slate-300">
                   <Sparkles className="w-4 h-4 text-yellow-400" />
-                  <span>Advanced payment tracking</span>
+                  <span>Advanced Analytics & Reporting</span>
                 </div>
                 <div className="flex items-center space-x-2 text-slate-300">
                   <Zap className="w-4 h-4 text-blue-400" />
-                  <span>Priority support</span>
+                  <span>Priority Support</span>
                 </div>
                 <div className="flex items-center space-x-2 text-slate-300">
                   <Crown className="w-4 h-4 text-purple-400" />
-                  <span>Exclusive features</span>
+                  <span>AI-Powered Insights</span>
                 </div>
               </div>
               
-              <div className="flex space-x-3">
+              <div className="flex space-x-3 pt-2">
                 <Button
                   onClick={() => setShowUpgradeModal(false)}
                   variant="outline"
