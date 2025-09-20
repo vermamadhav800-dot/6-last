@@ -11,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Edit, Trash2, MoreVertical, Search, UserPlus, BedDouble, Users, FileText, Phone, Mail, BadgeInfo, Banknote, ShieldAlert, Calendar, FileScan, Copy } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { generateTenantId } from '@/lib/utils';
 
 const getInitials = (name) => {
     if (!name) return 'U';
@@ -25,7 +24,6 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
     const [formData, setFormData] = useState({});
 
     useEffect(() => {
-        const newLoginId = tenant ? tenant.loginId : generateTenantId();
         setFormData({
             name: tenant?.name || '',
             phone: tenant?.phone || '',
@@ -38,7 +36,6 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
             profilePhotoUrl: tenant?.profilePhotoUrl || null,
             aadhaarCardUrl: tenant?.aadhaarCardUrl || null,
             leaseAgreementUrl: tenant?.leaseAgreementUrl || null,
-            loginId: newLoginId,
         });
     }, [isOpen, tenant]);
 
@@ -51,9 +48,17 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
         }
     };
 
+    const getOccupancy = (roomId) => tenants.filter(t => t.roomId === roomId).length;
+
     const handleSubmit = () => {
-        if (!formData.name || !formData.phone || !formData.roomId || !formData.loginId) {
-            toast({ variant: "destructive", title: "Missing Fields", description: "Name, Phone, Room, and Login ID are required." });
+        if (!formData.name || !formData.phone || !formData.roomId) {
+            toast({ variant: "destructive", title: "Missing Fields", description: "Name, Phone, and Room are required." });
+            return;
+        }
+        
+        const room = rooms.find(r => r.id === formData.roomId);
+        if (!tenant && room && getOccupancy(room.id) >= room.capacity) {
+            toast({ variant: "destructive", title: "Room Full", description: "This room has reached its maximum capacity." });
             return;
         }
 
@@ -70,12 +75,13 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
     
     const roomForTenant = rooms.find(r => r.id === formData.roomId);
     const isRentSharing = roomForTenant?.rentSharing;
-
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(formData.loginId).then(() => {
-            toast({ title: "Copied!", description: "Login ID copied to clipboard." });
+    
+    const availableRooms = useMemo(() => {
+        return rooms.filter(room => {
+            const occupancy = getOccupancy(room.id);
+            return occupancy < room.capacity;
         });
-    };
+    }, [rooms, tenants]);
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -103,17 +109,12 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
                     {/* Column 2: Room & Tenancy Info */}
                     <div className="col-span-1 space-y-4 border-l border-r border-slate-800 px-6">
                         <div className="space-y-2">
-                            <Label>Login ID</Label>
-                            <div className="flex items-center gap-2">
-                                <Input value={formData.loginId} readOnly placeholder="Generated ID" />
-                                <Button size="icon" variant="outline" onClick={copyToClipboard} disabled={!formData.loginId}><Copy className="h-4 w-4"/></Button>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
                             <Label>Room / Unit</Label>
                             <select value={formData.roomId} onChange={e => setFormData({...formData, roomId: e.target.value})} className="w-full bg-slate-800 border border-slate-600 rounded p-2">
-                                <option value="">Select a Room</option>
-                                {rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+                                 <option value="">Select a Room</option>
+                                {availableRooms.map(room => <option key={room.id} value={room.id}>{room.name} ({getOccupancy(room.id)}/{room.capacity})</option>)}
+                                {tenant && !availableRooms.find(r => r.id === tenant.roomId) && rooms.find(r => r.id === tenant.roomId) &&
+                                    <option key={tenant.roomId} value={tenant.roomId}>{rooms.find(r => r.id === tenant.roomId).name} (Full)</option>}
                             </select>
                         </div>
                         <div className="space-y-2">
@@ -214,6 +215,7 @@ export default function Tenants({ appState: activeProperty, setAppState: dispatc
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredTenants.map(tenant => {
                     const room = rooms.find(r => r.id === tenant.roomId);
+                    const rentAmount = parseFloat(tenant.rent);
                     return (
                     <Card key={tenant.id} className="bg-slate-800/50 border-white/10 flex flex-col">
                         <CardHeader className="flex flex-row items-start gap-4">
@@ -231,10 +233,9 @@ export default function Tenants({ appState: activeProperty, setAppState: dispatc
                             </DropdownMenu>
                         </CardHeader>
                         <CardContent className="space-y-3 text-sm flex-1">
-                             <div className="flex items-center gap-3"><BadgeInfo className="h-4 w-4 text-slate-400"/><span>Login ID: {tenant.loginId || 'N/A'}</span></div>
                             <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-slate-400"/><span>{tenant.phone}</span></div>
                             <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-slate-400"/><span>{tenant.email || 'Not provided'}</span></div>
-                            <div className="flex items-center gap-3 text-green-400"><Banknote className="h-4 w-4"/><span>Rent: ₹{tenant.rent ? tenant.rent.toFixed(2) : 'N/A'}</span></div>
+                            <div className="flex items-center gap-3 text-green-400"><Banknote className="h-4 w-4"/><span>Rent: ₹{!isNaN(rentAmount) ? rentAmount.toFixed(2) : 'N/A'}</span></div>
                             {tenant.moveInDate && <div className="flex items-center gap-3 text-slate-400"><Calendar className="h-4 w-4"/><span>Joined: {new Date(tenant.moveInDate).toLocaleDateString()}</span></div>}
                         </CardContent>
                     </Card>

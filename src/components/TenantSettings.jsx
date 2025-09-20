@@ -15,14 +15,13 @@ import { themes } from '@/contexts/ThemeContext';
 import { Badge } from './ui/badge';
 import { motion } from 'framer-motion';
 
-const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
+const TenantSettings = ({ tenant, setAppState, propertyId }) => {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const { currentTheme, setCurrentTheme, theme: appTheme } = useAppTheme();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   const isPremium = tenant.subscriptionPlan === 'premium';
-  const isPlus = tenant.subscriptionPlan === 'plus';
 
   const handleThemeChange = (newTheme) => {
     setCurrentTheme(newTheme);
@@ -32,15 +31,25 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
     });
   };
 
+  const updateTenantInState = (tenantUpdater) => {
+    setAppState(prevState => {
+      const propertyToUpdate = prevState.properties.find(p => p.id === propertyId);
+      if (!propertyToUpdate) return prevState;
+
+      const updatedTenants = propertyToUpdate.tenants.map(t => 
+        t.id === tenant.id ? tenantUpdater(t) : t
+      );
+      
+      const updatedProperties = prevState.properties.map(p => 
+        p.id === propertyId ? { ...propertyToUpdate, tenants: updatedTenants } : p
+      );
+
+      return { ...prevState, properties: updatedProperties };
+    });
+  };
+
   const handleNotificationToggle = (enabled) => {
-    setOwnerState(prev => ({
-      ...prev,
-      tenants: prev.tenants.map(t => 
-        t.id === tenant.id 
-          ? { ...t, notificationsEnabled: enabled }
-          : t
-      )
-    }));
+    updateTenantInState(t => ({ ...t, notificationsEnabled: enabled }));
     toast({
       title: "Settings Updated",
       description: enabled ? "Notifications enabled" : "Notifications disabled",
@@ -48,19 +57,21 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
   };
 
   const handleProfileUpdate = (field, value) => {
-    setOwnerState(prev => ({
-      ...prev,
-      tenants: prev.tenants.map(t => 
-        t.id === tenant.id 
-          ? { ...t, [field]: value }
-          : t
-      )
-    }));
+    updateTenantInState(t => ({ ...t, [field]: value }));
     toast({
       title: "Profile Updated",
       description: "Your profile has been updated successfully",
     });
   };
+  
+  const handlePlanChange = (newPlan) => {
+    updateTenantInState(t => ({ ...t, subscriptionPlan: newPlan }));
+    setIsUpgradeModalOpen(false);
+    toast({
+      title: "Plan Updated",
+      description: `You're now on the ${tenantPlans[newPlan].name} plan`,
+    });
+  }
 
   const tenantPlans = {
     free: {
@@ -87,7 +98,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -105,7 +115,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Current Plan */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -156,7 +165,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
           </Card>
         </motion.div>
 
-        {/* Theme Settings */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -171,7 +179,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
               <CardDescription>Customize the look and feel of your app</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* System Theme Toggle */}
               <div className="space-y-4">
                 <Label>System Theme</Label>
                 <div className="flex items-center gap-2">
@@ -192,7 +199,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
                 </div>
               </div>
 
-              {/* App Theme Selection */}
               <div className="space-y-4">
                 <Label>App Theme</Label>
                 <Select value={currentTheme} onValueChange={handleThemeChange}>
@@ -220,7 +226,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
                 </Select>
               </div>
 
-              {/* Theme Preview */}
               <div className="space-y-2">
                 <Label>Theme Preview</Label>
                 <div className={`p-4 rounded-lg bg-gradient-to-r ${appTheme.primary} text-white`}>
@@ -239,7 +244,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
           </Card>
         </motion.div>
 
-        {/* Notifications */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -269,7 +273,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
           </Card>
         </motion.div>
 
-        {/* Profile Settings */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -318,7 +321,6 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
         </motion.div>
       </div>
 
-      {/* Upgrade Modal */}
       {isUpgradeModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <motion.div
@@ -342,23 +344,7 @@ const TenantSettings = ({ tenant, setOwnerState, ownerState }) => {
                         ? 'border-purple-500 bg-purple-500/10'
                         : 'border-slate-600 hover:border-slate-500'
                     }`}
-                    onClick={() => {
-                      if (key !== tenant.subscriptionPlan) {
-                        setOwnerState(prev => ({
-                          ...prev,
-                          tenants: prev.tenants.map(t => 
-                            t.id === tenant.id 
-                              ? { ...t, subscriptionPlan: key }
-                              : t
-                          )
-                        }));
-                        setIsUpgradeModalOpen(false);
-                        toast({
-                          title: "Plan Updated",
-                          description: `You're now on the ${plan.name} plan`,
-                        });
-                      }
-                    }}
+                    onClick={() => handlePlanChange(key)}
                   >
                     <div className="flex items-center space-x-3">
                       <div className={`w-6 h-6 rounded-full bg-gradient-to-r ${plan.color} flex items-center justify-center`}>

@@ -59,18 +59,26 @@ const ProfessionalTenantDashboard = ({ tenant, ownerState, setAppState, ownerId,
 
   const updateOwnerState = (updater) => {
     setAppState(prevApp => {
-      const ownerData = prevApp[ownerId] || {};
-      const updatedOwnerData = typeof updater === 'function' ? updater(ownerData) : updater;
-      return { ...prevApp, [ownerId]: updatedOwnerData };
+        if (!prevApp || !ownerId) return prevApp;
+        const ownerData = prevApp[ownerId] || {};
+        const updatedOwnerData = typeof updater === 'function' ? updater(ownerData) : updater;
+        return { ...prevApp, [ownerId]: updatedOwnerData };
     });
   };
 
   const markNotificationsAsRead = () => {
     updateOwnerState(prev => {
-        const updatedNotifications = prev.notifications.map(n => 
-            n.tenantId === tenant.id ? { ...n, isRead: true } : n
-        );
-        return { ...prev, properties: prev.properties.map(p => p.id === property.id ? { ...p, notifications: updatedNotifications } : p) };
+        if (!prev || !prev.properties) return prev;
+        const updatedProperties = prev.properties.map(p => {
+            if (p.id === property.id) {
+                const updatedNotifications = (p.notifications || []).map(n => 
+                    n.tenantId === tenant.id ? { ...n, isRead: true } : n
+                );
+                return { ...p, notifications: updatedNotifications };
+            }
+            return p;
+        });
+        return { ...prev, properties: updatedProperties };
     });
   };
 
@@ -197,13 +205,19 @@ const ProfessionalTenantDashboard = ({ tenant, ownerState, setAppState, ownerId,
   );
 
   const renderTabContent = () => {
+    const passThroughProps = { 
+        tenant, 
+        setAppState: updateOwnerState, 
+        propertyId: property.id 
+    };
+
     switch (activeTab) {
       case 'overview': return <OverviewTab />;
-      case 'payments': return <PaymentPortal tenant={tenant} ownerState={ownerState} setOwnerState={setAppState} ownerId={ownerId} />;
+      case 'payments': return <PaymentPortal tenant={tenant} ownerState={ownerState} setOwnerState={updateOwnerState} ownerId={ownerId} />;
       case 'documents': return <TenantDocuments tenant={tenant} />;
-      case 'requests': return <TenantRequests tenant={tenant} property={property} setAppState={setAppState} ownerId={ownerId} />;
-      case 'profile': return <TenantProfile tenant={tenant} ownerState={property} setOwnerState={updateOwnerState} />;
-      case 'settings': return <TenantSettings tenant={tenant} setOwnerState={updateOwnerState} ownerState={property} />;
+      case 'requests': return <TenantRequests tenant={tenant} property={property} setAppState={updateOwnerState} ownerId={ownerId} />;
+      case 'profile': return <TenantProfile tenant={tenant} setAppState={updateOwnerState} propertyId={property.id} />;
+      case 'settings': return <TenantSettings {...passThroughProps} />;
       default: return <OverviewTab />;
     }
   };

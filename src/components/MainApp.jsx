@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useReducer } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -23,7 +23,6 @@ import {
   FolderArchive,
   BrainCircuit,
   MoreHorizontal,
-  IdCard,
   User,
   Building,
   ChevronDown,
@@ -56,7 +55,6 @@ import { Separator } from "./ui/separator";
 import Upgrade from "./Upgrade";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import IdCards from "./IdCards";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import OwnerProfile from "./OwnerProfile";
 import Properties from "./Properties";
@@ -89,126 +87,6 @@ const calculateDues = (tenant) => {
 };
 
 
-// --- CENTRALIZED STATE MANAGEMENT LOGIC (The "Brain") ---
-const appReducer = (state, action) => {
-  const { activePropertyId } = state;
-
-  const updateProperty = (propertyId, updateFn) => {
-    if (!propertyId) return state.properties;
-    return state.properties.map(p => 
-      p.id === propertyId ? updateFn(p) : p
-    );
-  };
-
-  switch (action.type) {
-    case 'SET_STATE':
-        return action.payload;
-
-    case 'SET_ACTIVE_PROPERTY':
-      return { ...state, activePropertyId: action.payload };
-
-    case 'ADD_ROOM':
-        return {
-            ...state,
-            properties: updateProperty(activePropertyId, p => ({ ...p, rooms: [...(p.rooms || []), action.payload] }))
-        };
-
-    case 'UPDATE_ROOM':
-        return {
-            ...state,
-            properties: updateProperty(activePropertyId, p => ({ ...p, rooms: (p.rooms || []).map(r => r.id === action.payload.id ? action.payload : r) }))
-        };
-
-    case 'DELETE_ROOM':
-        return {
-            ...state,
-            properties: updateProperty(activePropertyId, p => ({ ...p, rooms: (p.rooms || []).filter(r => r.id !== action.payload.id) }))
-        };
-
-    case 'ADD_TENANT_AND_ADJUST_RENT': {
-      const { newTenant: tenantData } = action.payload;
-      
-      const tenantNamePart = tenantData.name.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-      const randomNum = Math.floor(1000 + Math.random() * 9000);
-      
-      const newTenant = {
-          ...tenantData,
-          loginId: `${tenantNamePart}-${randomNum}`,
-          payments: [],
-          otherCharges: [],
-      };
-
-      const properties = updateProperty(activePropertyId, property => {
-        const updatedTenants = [...(property.tenants || []), newTenant];
-        const room = (property.rooms || []).find(r => r.id === newTenant.roomId);
-
-        if (room && room.rentSharing) {
-            const tenantsInSameRoom = updatedTenants.filter(t => t.roomId === newTenant.roomId);
-            if (tenantsInSameRoom.length > 0) {
-                 const rentPerTenant = room.rent / tenantsInSameRoom.length;
-                 const finalTenants = updatedTenants.map(t => {
-                    if (t.roomId === newTenant.roomId) {
-                        return { ...t, rent: rentPerTenant };
-                    }
-                    return t;
-                });
-                return { ...property, tenants: finalTenants };
-            }
-        }
-        return { ...property, tenants: updatedTenants };
-      });
-      return { ...state, properties };
-    }
-
-    case 'APPLY_ELECTRICITY_BILL': {
-      const { reading } = action.payload;
-      const properties = updateProperty(activePropertyId, property => {
-        const tenantsInRoom = (property.tenants || []).filter(t => t.roomId === reading.roomId);
-        if (tenantsInRoom.length === 0) return property;
-        
-        const amountPerTenant = parseFloat(reading.totalAmount) / tenantsInRoom.length;
-
-        const updatedTenants = property.tenants.map(t => {
-          if (tenantsInRoom.some(tr => tr.id === t.id)) {
-            const otherCharges = (t.otherCharges || []).filter(oc => oc.id !== `elec-${reading.id}`);
-            otherCharges.push({
-              id: `elec-${reading.id}`,
-              amount: amountPerTenant,
-              description: `Electricity Bill for ${new Date(reading.date).toLocaleString('default', { month: 'long' })}`,
-              date: reading.date,
-            });
-            return { ...t, otherCharges };
-          }
-          return t;
-        });
-
-        const updatedElectricity = (property.electricity || []).map(r => r.id === reading.id ? { ...r, applied: true } : r);
-        return { ...property, tenants: updatedTenants, electricity: updatedElectricity };
-      });
-      return { ...state, properties };
-    }
-    
-    case 'UPDATE_PROPERTY_DATA': {
-       const { key, data } = action.payload;
-       return {
-           ...state,
-           properties: updateProperty(activePropertyId, p => ({ ...p, [key]: data }))
-       };
-    }
-    
-    case 'UPDATE_OWNER_DEFAULTS': {
-        return {
-            ...state,
-            defaults: { ...(state.defaults || {}), ...action.payload }
-        };
-    }
-
-    default:
-      return state;
-  }
-};
-
-
 // --- UI COMPONENTS ---
 
 const TABS = [
@@ -216,7 +94,6 @@ const TABS = [
   { id: "profile", label: "Profile", icon: User, plan: 'standard', group: 'main' },
   { id: "properties", label: "Properties", icon: Building, plan: 'pro', group: 'management' },
   { id: "tenants", label: "Tenants", icon: Users, plan: 'standard', group: 'management' },
-  { id: "id-cards", label: "ID Cards", icon: IdCard, plan: 'standard', group: 'management' },
   { id: "rooms", label: "Rooms", icon: DoorOpen, plan: 'standard', group: 'management' },
   { id: "payments", label: "Payments", icon: CreditCard, plan: 'standard', group: 'management' },
   { id: "requests", label: "Requests", icon: Wrench, plan: 'standard', group: 'operations' },
@@ -259,7 +136,6 @@ function AppContent({ activeTab, setActiveTab, ownerState, dispatch, user, activ
       case "rooms": return <Rooms {...props} />;
       case "electricity": return <Electricity {...props} />;
       case "insights": return <Insights {...props} />;
-      case "id-cards": return <IdCards {...props} />;
       case "payments": return <Payments {...props} />;
       case "requests": return <MaintenanceRequests {...props} appState={ownerState} />;
       case "approvals": return <PendingApprovals {...props} />;
@@ -328,35 +204,10 @@ function AppContent({ activeTab, setActiveTab, ownerState, dispatch, user, activ
   );
 }
 
-export default function MainApp({ onLogout, user, ownerState: initialOwnerState, setAppState: setGlobalAppState }) {
+export default function MainApp({ onLogout, user, ownerState, setAppState: dispatch }) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const { toast } = useToast();
   const { theme: appTheme } = useAppTheme();
-
-  const [ownerState, dispatch] = useReducer(appReducer, initialOwnerState);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && user?.username) {
-      const savedState = localStorage.getItem(`estateFlowAppState_${user.username}`);
-      if (savedState) {
-        try {
-          const parsedState = JSON.parse(savedState);
-          if (parsedState && parsedState.properties) {
-            dispatch({ type: 'SET_STATE', payload: parsedState });
-          }
-        } catch (e) {
-          console.error("Failed to parse saved state:", e);
-        }
-      }
-    }
-  }, [user?.username]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && ownerState !== initialOwnerState) {
-      localStorage.setItem(`estateFlowAppState_${user.username}`, JSON.stringify(ownerState));
-    }
-  }, [ownerState, user?.username, initialOwnerState]);
-
 
   if (!user || !ownerState) {
     return <div className="flex items-center justify-center min-h-screen w-full"><p>Loading...</p></div>;

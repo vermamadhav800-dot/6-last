@@ -1,258 +1,127 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useReducer } from "react";
 import StartupScreen from "@/components/StartupScreen";
-import ProfessionalAuth from "@/components/ProfessionalAuth";
+import Auth from "@/components/auth/Auth";
 import MainApp from "@/components/MainApp";
 import ProfessionalTenantDashboard from "@/components/TenantDashboard";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from "@/lib/hooks";
 import { INITIAL_APP_STATE } from "@/lib/consts";
-import OwnerProfile from "@/components/OwnerProfile";
-import { generateTenantId } from "@/lib/utils";
+import { appReducer } from "@/lib/reducers/appReducer";
 
 export default function Home() {
   const [isStartupLoading, setIsStartupLoading] = useState(true);
   const [authStorage, setAuthStorage] = useLocalStorage("auth", { user: null, role: null });
   const [auth, setAuth] = useState(authStorage);
-  const [appState, setAppState] = useLocalStorage("appState_v2", {});
-  const { toast } = useToast();
+  const [globalAppState, setGlobalAppState] = useLocalStorage("appState_v2", {});
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [tempPhone, setTempPhone] = useState(null);
 
+  // Use a reducer for the logged-in owner's state
+  const [ownerState, dispatch] = useReducer(appReducer, null);
+
+  const { toast } = useToast();
+
   useEffect(() => {
-    const startupTimer = setTimeout(() => {
-      setIsStartupLoading(false);
-    }, 2000);
+    const startupTimer = setTimeout(() => setIsStartupLoading(false), 2000);
     return () => clearTimeout(startupTimer);
   }, []);
 
   useEffect(() => {
     setAuthStorage(auth);
-  }, [auth, setAuthStorage]);
-
-  // Migration: Move single-property data to multi-property structure
-  useEffect(() => {
-    setAppState(currentAppState => {
-      let needsUpdate = false;
-      const updatedState = JSON.parse(JSON.stringify(currentAppState));
-      
-      for (const ownerKey in updatedState) {
-        const ownerState = updatedState[ownerKey];
-        if (ownerState && !ownerState.properties) {
-            needsUpdate = true;
-            const defaultProperty = {
-                id: `prop_${Date.now()}`,
-                name: ownerState.defaults?.propertyName || 'Default Property',
-                address: ownerState.defaults?.propertyAddress || '',
-                tenants: ownerState.tenants || [],
-                rooms: ownerState.rooms || [],
-                payments: ownerState.payments || [],
-                electricity: ownerState.electricity || [],
-                expenses: ownerState.expenses || [],
-                pendingApprovals: ownerState.pendingApprovals || [],
-                updateRequests: ownerState.updateRequests || [],
-                maintenanceRequests: ownerState.maintenanceRequests || [],
-                notifications: ownerState.notifications || [],
-                globalNotices: ownerState.globalNotices || [],
-            };
-            
-            ownerState.properties = [defaultProperty];
-            ownerState.activePropertyId = defaultProperty.id;
-
-            // Remove old top-level keys
-            delete ownerState.tenants;
-            delete ownerState.rooms;
-            delete ownerState.payments;
-            delete ownerState.electricity;
-            delete ownerState.expenses;
-            delete ownerState.pendingApprovals;
-            delete ownerState.updateRequests;
-            delete ownerState.maintenanceRequests;
-            delete ownerState.notifications;
-            delete ownerState.globalNotices;
+    if (auth.role === 'owner' && auth.user) {
+        // Initialize or update the reducer state when auth changes
+        const initialState = globalAppState[auth.user.username] || {
+            ...INITIAL_APP_STATE,
+            MOCK_USER_INITIAL: { ...auth.user }
+        };
+        if (JSON.stringify(ownerState) !== JSON.stringify(initialState)) {
+           dispatch({ type: 'SET_STATE', payload: initialState });
         }
-      }
-      if (needsUpdate) return updatedState;
-      return currentAppState;
-    });
-  }, [setAppState]);
-
-  // Stable Tenant Login ID Migration
-  useEffect(() => {
-    setAppState(currentAppState => {
-        let needsUpdate = false;
-        const updatedState = JSON.parse(JSON.stringify(currentAppState));
-        const existingLoginIds = new Set();
-
-        // First, collect all existing valid loginIds to avoid duplicates
-        for (const ownerKey in updatedState) {
-            if (updatedState[ownerKey]?.properties) {
-                updatedState[ownerKey].properties.forEach(property => {
-                    property.tenants?.forEach(tenant => {
-                        if (tenant.loginId && tenant.loginId.startsWith('TID-')) {
-                            existingLoginIds.add(tenant.loginId);
-                        }
-                    });
-                });
-            }
-        }
-
-        // Now, migrate tenants who don't have a stable, unique loginId
-        for (const ownerKey in updatedState) {
-            if (updatedState[ownerKey]?.properties) {
-                updatedState[ownerKey].properties.forEach(property => {
-                    property.tenants?.forEach(tenant => {
-                        if (!tenant.loginId || !tenant.loginId.startsWith('TID-') || existingLoginIds.has(tenant.loginId)) {
-                            needsUpdate = true;
-                            let newId;
-                            do {
-                                newId = generateTenantId();
-                            } while (existingLoginIds.has(newId));
-                            tenant.loginId = newId;
-                            existingLoginIds.add(newId);
-                        }
-                    });
-                });
-            }
-        }
-
-        if (needsUpdate) {
-            console.log("Migrating tenant login IDs to a stable version...");
-            return updatedState;
-        }
-        return currentAppState;
-    });
-  }, [setAppState]);
-
-
-  // Effect to show profile completion toast
-  useEffect(() => {
-    if (auth.role === 'owner' && auth.user?.username) {
-        const ownerData = appState[auth.user.username];
-        if (ownerData) {
-            const isProfileComplete = ownerData.properties && ownerData.properties.length > 0 && ownerData.properties[0].name;
-            if (!isProfileComplete) {
-                toast({
-                    title: "Welcome! Let\'s set up your profile.",
-                    description: "Please fill in your property details to continue.",
-                    duration: 5000,
-                });
-            }
-        }
+    } else {
+        dispatch({ type: 'SET_STATE', payload: null });
     }
-  }, [auth.role, auth.user?.username, appState, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth, globalAppState]);
+
+
+  useEffect(() => {
+    // Persist ownerState changes to global app state and local storage
+    if (auth.role === 'owner' && auth.user && ownerState && JSON.stringify(globalAppState[auth.user.username]) !== JSON.stringify(ownerState)) {
+      const newGlobalState = { ...globalAppState, [auth.user.username]: ownerState };
+      setGlobalAppState(newGlobalState);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerState, auth]);
 
   const handleAuth = async (credentials, action) => {
     setIsLoading(true);
-    // A short delay to allow UI to update, e.g., show spinner
     await new Promise(resolve => setTimeout(resolve, 300));
 
     try {
         if (action === 'login-phone-start') {
             const normalizedPhone = (credentials.phone || '').replace(/\D/g, '').slice(-10);
-            const owner = Object.values(appState).find(owner => owner?.MOCK_USER_INITIAL?.phone === credentials.phone);
+            const owner = Object.values(globalAppState).find(o => (o?.MOCK_USER_INITIAL?.phone || '').replace(/\D/g, '').slice(-10) === normalizedPhone);
+            
             if (!owner) {
-                const ownerByNormalized = Object.values(appState).find(owner => (owner?.MOCK_USER_INITIAL?.phone || '').replace(/\D/g, '').slice(-10) === normalizedPhone);
-                if (!ownerByNormalized) {
-                    toast({ variant: "destructive", title: "Login Failed", description: "Phone number not registered to any owner." });
-                    setIsLoading(false);
-                    return false;
-                }
-                setTempPhone(ownerByNormalized.MOCK_USER_INITIAL.phone);
-                setIsOtpSent(true);
-                toast({ title: "OTP Sent", description: "Use the demo OTP: 151515" });
-                setIsLoading(false);
-                return true;
-            }
-            setTempPhone(credentials.phone);
-            setIsOtpSent(true);
-            toast({ title: "OTP Sent", description: "Use the demo OTP: 151515" });
-            setIsLoading(false);
-            return true;
-        }
-
-        if (action === 'login-phone-verify') {
-            if (credentials.otp !== '151515') {
-                toast({ variant: "destructive", title: "Login Failed", description: "Invalid OTP. Please use the demo OTP." });
-                setIsLoading(false);
+                toast({ variant: "destructive", title: "Login Failed", description: "Phone number not registered." });
                 return false;
             }
 
-            const ownerData = Object.values(appState).find(ownerState => ownerState?.MOCK_USER_INITIAL?.phone === tempPhone
-              || (ownerState?.MOCK_USER_INITIAL?.phone || '').replace(/\D/g, '').slice(-10) === (tempPhone || '').replace(/\D/g, '').slice(-10));
+            setTempPhone(owner.MOCK_USER_INITIAL.phone);
+            setIsOtpSent(true);
+            toast({ title: "OTP Sent", description: "Use the demo OTP: 151515" });
+            return true;
+
+        } else if (action === 'login-phone-verify') {
+            if (credentials.otp !== '151515') {
+                toast({ variant: "destructive", title: "Login Failed", description: "Invalid OTP." });
+                return false;
+            }
+
+            const ownerData = Object.values(globalAppState).find(o => (o?.MOCK_USER_INITIAL?.phone || '').replace(/\D/g, '').slice(-10) === (tempPhone || '').replace(/\D/g, '').slice(-10));
             if (ownerData) {
                 setAuth({ user: ownerData.MOCK_USER_INITIAL, role: 'owner' });
                 toast({ title: "Login Successful", description: "Welcome back!" });
-                setIsLoading(false);
                 setTempPhone(null);
                 setIsOtpSent(false);
                 return true;
             }
+
             toast({ variant: "destructive", title: "Login Failed", description: "Could not find user data." });
-            setIsLoading(false);
             return false;
-        }
 
-        if (action === 'tenant-phone-check') {
+        } else if (action === 'login') { // Tenant Login
             const normalizedUserInputPhone = (credentials.username || '').replace(/\D/g, '').slice(-10);
-            if (!normalizedUserInputPhone) return false;
-
-            for (const ownerKey in appState) {
-                const ownerData = appState[ownerKey];
-                if (ownerData?.properties) {
-                    for (const property of ownerData.properties) {
-                        const tenantExists = property.tenants?.some(t => {
-                            const storedTenantPhone = (t.phone || '').replace(/\D/g, '').slice(-10);
-                            return storedTenantPhone === normalizedUserInputPhone;
-                        });
-                        if (tenantExists) {
-                           return true; // Phone number found
-                        }
-                    }
-                }
+            if (!normalizedUserInputPhone) {
+                toast({ variant: "destructive", title: "Login Failed", description: "Phone number is required." });
+                return false;
             }
-            return false; // Phone number not found anywhere
-        }
 
-        if (action === 'login') { // Tenant login (final step)
-            const normalizedUserInputPhone = (credentials.username || '').replace(/\D/g, '').slice(-10);
-            const inputTenantId = (credentials.tenantId || '').trim();
-
-            for (const ownerKey in appState) {
-                const ownerData = appState[ownerKey];
+            for (const ownerKey in globalAppState) {
+                const ownerData = globalAppState[ownerKey];
                 if (ownerData?.properties) {
                     for (const property of ownerData.properties) {
-                        const tenant = property.tenants?.find(t => {
-                            const storedTenantPhone = (t.phone || '').replace(/\D/g, '').slice(-10);
-                            const storedLoginId = (t.loginId || '').trim();
-                            
-                            return storedTenantPhone === normalizedUserInputPhone && 
-                                   storedLoginId.toUpperCase() === inputTenantId.toUpperCase();
-                        });
-
+                        const tenant = property.tenants?.find(t => (t.phone || '').replace(/\D/g, '').slice(-10) === normalizedUserInputPhone);
                         if (tenant) {
                             setAuth({ user: tenant, role: 'tenant', ownerId: ownerKey, propertyId: property.id });
                             toast({ title: "Login Successful!", description: `Welcome back, ${tenant.name}!` });
-                            setIsLoading(false);
                             return true;
                         }
                     }
                 }
             }
-            // This toast will be shown by the component on a false return
-            toast({ variant: "destructive", title: "Login Failed", description: "The Login ID is incorrect. Please try again or contact your owner." });
-            setIsLoading(false);
+
+            toast({ variant: "destructive", title: "Login Failed", description: "Phone number not found." });
             return false;
 
-        } else if (action === 'register') { // Owner registration
+        } else if (action === 'register') {
             const normalizedPhone = (credentials.phone || '').replace(/\D/g, '').slice(-10);
-            const phoneExists = Object.values(appState).some(owner => (owner?.MOCK_USER_INITIAL?.phone || '').replace(/\D/g, '').slice(-10) === normalizedPhone);
-            if (phoneExists) {
-                toast({ variant: "destructive", title: "Registration Failed", description: "An account with this phone number already exists." });
-                setIsLoading(false);
+            if (Object.values(globalAppState).some(o => (o?.MOCK_USER_INITIAL?.phone || '').replace(/\D/g, '').slice(-10) === normalizedPhone)) {
+                toast({ variant: "destructive", title: "Registration Failed", description: "Phone number already registered." });
                 return false;
             }
             
@@ -260,8 +129,6 @@ export default function Home() {
                 name: credentials.name,
                 username: normalizedPhone,
                 phone: normalizedPhone,
-                email: '',
-                password: credentials.password,
                 createdAt: new Date().toISOString(),
             };
 
@@ -270,18 +137,15 @@ export default function Home() {
                 MOCK_USER_INITIAL: newOwner,
             };
 
-            setAppState(prev => ({...prev, [normalizedPhone]: newOwnerState}));
-            toast({ title: "Registration Successful", description: "Your account has been created. Please sign in." });
-            setIsLoading(false);
+            setGlobalAppState(prev => ({...prev, [normalizedPhone]: newOwnerState}));
+            toast({ title: "Registration Successful", description: "Please sign in to continue." });
             return true;
         }
     } catch (error) {
-        console.error("Auth Error:", error);
-        toast({ variant: "destructive", title: "Authentication Error", description: "An unexpected error occurred." });
+        toast({ variant: "destructive", title: "Auth Error", description: "An unexpected error occurred." });
     } finally {
         setIsLoading(false);
     }
-
     return false;
   };
 
@@ -290,79 +154,42 @@ export default function Home() {
     setIsOtpSent(false);
     setTempPhone(null);
   };
-  
-  const setOwnerState = (updater) => {
-    if (!auth.user || !auth.user.username) return;
-    setAppState(prevAppState => {
-      const currentOwnerState = prevAppState[auth.user.username] || INITIAL_APP_STATE;
-      const newOwnerState = typeof updater === 'function' ? updater(currentOwnerState) : updater;
-      return {
-        ...prevAppState,
-        [auth.user.username]: newOwnerState
-      };
-    });
-  };
 
   const renderContent = () => {
       if (isStartupLoading) return <StartupScreen />;
       
-      if (auth.user) {
-          if (auth.role === 'owner') {
-             const ownerData = appState[auth.user.username];
-             if (!ownerData) {
-                handleLogout();
-                return <ProfessionalAuth onAuth={handleAuth} isOtpSent={isOtpSent} isLoading={isLoading}/>;
-             }
-
-             const isProfileComplete = ownerData.properties && ownerData.properties.length > 0 && ownerData.properties[0].name;
-             if (!isProfileComplete) {
-                return (
-                    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
-                        <OwnerProfile
-                            appState={ownerData}
-                            setAppState={setOwnerState}
-                            user={auth.user}
-                            isInitialSetup={true}
-                        />
-                    </div>
-                );
-             }
-
-             return <MainApp 
-                ownerState={ownerData} 
-                setAppState={setAppState}
-                onLogout={handleLogout} 
-                user={auth.user} 
-              />;
-          }
-          if (auth.role === 'tenant') {
-            const ownerData = appState[auth.ownerId];
-            if (!ownerData || !ownerData.properties) {
-              handleLogout();
-              return <ProfessionalAuth onAuth={handleAuth} isOtpSent={isOtpSent} isLoading={isLoading}/>;
-            }
+      if (auth.user && auth.role === 'owner') {
+          if (!ownerState) return <StartupScreen message="Initializing Owner Dashboard..."/>;
+          return <MainApp 
+            ownerState={ownerState} 
+            setAppState={dispatch} // Pass the dispatch function
+            onLogout={handleLogout} 
+            user={auth.user} 
+          />;
+      } 
+      
+      if (auth.user && auth.role === 'tenant') {
+            const ownerData = globalAppState[auth.ownerId];
+            if (!ownerData) { handleLogout(); return <Auth onAuth={handleAuth} isOtpSent={isOtpSent} isLoading={isLoading}/>; }
+            
             const property = ownerData.properties.find(p => p.id === auth.propertyId);
-            if (!property) {
-                handleLogout();
-                return <ProfessionalAuth onAuth={handleAuth} isOtpSent={isOtpSent} isLoading={isLoading}/>;
-            }
-            const tenant = property.tenants.find(t => t.id === auth.user.id);
-            if (!tenant) {
-              handleLogout();
-              return <ProfessionalAuth onAuth={handleAuth} isOtpSent={isOtpSent} isLoading={isLoading}/>;
-            }
+            const tenant = property?.tenants.find(t => t.id === auth.user.id);
+            if (!tenant) { handleLogout(); return <Auth onAuth={handleAuth} isOtpSent={isOtpSent} isLoading={isLoading}/>; }
+            
             return <ProfessionalTenantDashboard 
                 tenant={tenant}
                 ownerState={ownerData}
-                setAppState={setAppState}
+                setAppState={(updater) => {
+                     const newOwnerState = typeof updater === 'function' ? updater(ownerData) : updater;
+                     setGlobalAppState(p => ({...p, [auth.ownerId]: newOwnerState}));
+                }}
                 ownerId={auth.ownerId}
                 property={property}
                 onLogout={handleLogout} 
             />;
-          }
       }
 
-      return <ProfessionalAuth onAuth={handleAuth} isOtpSent={isOtpSent} isLoading={isLoading}/>;
+      return <Auth onAuth={handleAuth} isOtpSent={isOtpSent} isLoading={isLoading} setIsLoading={setIsLoading} />;
   }
 
   return <>{renderContent()}</>;

@@ -71,8 +71,7 @@ export default function AppSettings({ appState, setAppState, user }) {
       ...prev, 
       defaults: {
         ...defaults,
-        qrCodeUrl: qrCodePreview,
-        useFuturisticUpgrade: useFuturisticUpgrade,
+        qrCodeUrl: qrCodePreview, // Correctly save the QR code URL
       }, 
       MOCK_USER_INITIAL: { ...prev.MOCK_USER_INITIAL, ...currentUser } 
     }));

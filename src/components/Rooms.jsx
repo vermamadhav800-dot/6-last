@@ -87,8 +87,9 @@ export default function Rooms({ appState: activeProperty, setAppState: dispatch 
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {rooms.map(room => {
                            const occupancy = getOccupancy(room.id);
+                           const isFull = occupancy >= room.capacity;
                             return (
-                                <Card key={room.id} className="bg-slate-800/50 border-white/10">
+                                <Card key={room.id} className={`bg-slate-800/50 border-white/10 ${isFull ? 'border-yellow-500/50' : ''}`}>
                                     <CardHeader className="flex flex-row items-center justify-between">
                                         <CardTitle className="text-lg">{room.name}</CardTitle>
                                         <div className="flex items-center gap-2">
@@ -97,9 +98,10 @@ export default function Rooms({ appState: activeProperty, setAppState: dispatch 
                                         </div>
                                     </CardHeader>
                                     <CardContent className="space-y-3 text-sm">
-                                        <div className="flex justify-between items-center"><span className="text-slate-400 flex items-center gap-2"><Users/>Capacity</span> <span className="font-semibold">{occupancy} / {room.capacity}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-slate-400 flex items-center gap-2"><Users/>Capacity</span> <span className={`font-semibold ${isFull ? 'text-yellow-400' : 'text-white'}`}>{occupancy} / {room.capacity}</span></div>
                                         <div className="flex justify-between items-center"><span className="text-slate-400 flex items-center gap-2"><DollarSign/>Rent</span> <span className="font-semibold">₹{room.rent}/month</span></div>
                                         <div className="flex justify-between items-center"><span className="text-slate-400 flex items-center gap-2"><KeyRound/>Sharing</span> {room.rentSharing ? <CheckSquare className="text-green-400"/> : <XSquare className="text-red-400"/>}</div>
+                                        {isFull && <p className="text-yellow-400 text-xs text-center font-bold">Room is Full</p>}
                                     </CardContent>
                                 </Card>
                             );
