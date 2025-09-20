@@ -25,6 +25,7 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
     const [formData, setFormData] = useState({});
 
     useEffect(() => {
+        const newLoginId = tenant ? tenant.loginId : generateTenantId();
         setFormData({
             name: tenant?.name || '',
             phone: tenant?.phone || '',
@@ -37,7 +38,7 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
             profilePhotoUrl: tenant?.profilePhotoUrl || null,
             aadhaarCardUrl: tenant?.aadhaarCardUrl || null,
             leaseAgreementUrl: tenant?.leaseAgreementUrl || null,
-            loginId: tenant?.loginId || '',
+            loginId: newLoginId,
         });
     }, [isOpen, tenant]);
 
@@ -69,11 +70,6 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
     
     const roomForTenant = rooms.find(r => r.id === formData.roomId);
     const isRentSharing = roomForTenant?.rentSharing;
-
-    const handleGenerateId = () => {
-        const newId = generateTenantId();
-        setFormData(prev => ({ ...prev, loginId: newId }));
-    };
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(formData.loginId).then(() => {
@@ -109,11 +105,9 @@ const TenantFormModal = ({ isOpen, setIsOpen, tenant, setAppState: dispatch, roo
                         <div className="space-y-2">
                             <Label>Login ID</Label>
                             <div className="flex items-center gap-2">
-                                <Input value={formData.loginId} readOnly placeholder="Generate an ID" />
+                                <Input value={formData.loginId} readOnly placeholder="Generated ID" />
                                 <Button size="icon" variant="outline" onClick={copyToClipboard} disabled={!formData.loginId}><Copy className="h-4 w-4"/></Button>
                             </div>
-                            <Button onClick={handleGenerateId} className="w-full">Generate ID</Button>
-                            
                         </div>
                         <div className="space-y-2">
                             <Label>Room / Unit</Label>
@@ -244,7 +238,7 @@ export default function Tenants({ appState: activeProperty, setAppState: dispatc
                             {tenant.moveInDate && <div className="flex items-center gap-3 text-slate-400"><Calendar className="h-4 w-4"/><span>Joined: {new Date(tenant.moveInDate).toLocaleDateString()}</span></div>}
                         </CardContent>
                     </Card>
-                )})}
+                )})};
             </div>
 
             {isModalOpen && (

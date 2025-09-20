@@ -196,13 +196,18 @@ export default function Home() {
 
         if (action === 'login') { // Tenant login
             const normalizedUserInputPhone = (credentials.username || '').replace(/\D/g, '').slice(-10);
+            const inputTenantId = (credentials.tenantId || '').trim();
+
             for (const ownerKey in appState) {
                 const ownerData = appState[ownerKey];
                 if (ownerData?.properties) {
                     for (const property of ownerData.properties) {
                         const tenant = property.tenants?.find(t => {
                             const storedTenantPhone = (t.phone || '').replace(/\D/g, '').slice(-10);
-                            return storedTenantPhone === normalizedUserInputPhone && t.loginId === credentials.tenantId;
+                            const storedLoginId = (t.loginId || '').trim();
+                            
+                            return storedTenantPhone === normalizedUserInputPhone && 
+                                   storedLoginId.toUpperCase() === inputTenantId.toUpperCase();
                         });
 
                         if (tenant) {
