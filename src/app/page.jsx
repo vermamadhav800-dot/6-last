@@ -147,6 +147,8 @@ export default function Home() {
 
   const handleAuth = async (credentials, action) => {
     setIsLoading(true);
+    // A short delay to allow UI to update, e.g., show spinner
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     try {
         if (action === 'login-phone-start') {
@@ -194,7 +196,28 @@ export default function Home() {
             return false;
         }
 
-        if (action === 'login') { // Tenant login
+        if (action === 'tenant-phone-check') {
+            const normalizedUserInputPhone = (credentials.username || '').replace(/\D/g, '').slice(-10);
+            if (!normalizedUserInputPhone) return false;
+
+            for (const ownerKey in appState) {
+                const ownerData = appState[ownerKey];
+                if (ownerData?.properties) {
+                    for (const property of ownerData.properties) {
+                        const tenantExists = property.tenants?.some(t => {
+                            const storedTenantPhone = (t.phone || '').replace(/\D/g, '').slice(-10);
+                            return storedTenantPhone === normalizedUserInputPhone;
+                        });
+                        if (tenantExists) {
+                           return true; // Phone number found
+                        }
+                    }
+                }
+            }
+            return false; // Phone number not found anywhere
+        }
+
+        if (action === 'login') { // Tenant login (final step)
             const normalizedUserInputPhone = (credentials.username || '').replace(/\D/g, '').slice(-10);
             const inputTenantId = (credentials.tenantId || '').trim();
 
@@ -212,14 +235,18 @@ export default function Home() {
 
                         if (tenant) {
                             setAuth({ user: tenant, role: 'tenant', ownerId: ownerKey, propertyId: property.id });
-                            toast({ title: "Login Successful", description: `Welcome, ${tenant.name}!` });
+                            toast({ title: "Login Successful!", description: `Welcome back, ${tenant.name}!` });
                             setIsLoading(false);
                             return true;
                         }
                     }
                 }
             }
-            toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials. Please check your phone number and Login ID." });
+            // This toast will be shown by the component on a false return
+            toast({ variant: "destructive", title: "Login Failed", description: "The Login ID is incorrect. Please try again or contact your owner." });
+            setIsLoading(false);
+            return false;
+
         } else if (action === 'register') { // Owner registration
             const normalizedPhone = (credentials.phone || '').replace(/\D/g, '').slice(-10);
             const phoneExists = Object.values(appState).some(owner => (owner?.MOCK_USER_INITIAL?.phone || '').replace(/\D/g, '').slice(-10) === normalizedPhone);
@@ -251,9 +278,10 @@ export default function Home() {
     } catch (error) {
         console.error("Auth Error:", error);
         toast({ variant: "destructive", title: "Authentication Error", description: "An unexpected error occurred." });
+    } finally {
+        setIsLoading(false);
     }
 
-    setIsLoading(false);
     return false;
   };
 

@@ -57,7 +57,7 @@ const OwnerLoginForm = ({ onAuth, isOtpSent, isLoading }) => {
                             Enter Verification Code
                         </h3>
                         <p className="text-muted-foreground mt-2">
-                            We've sent a 6-digit code to your phone
+                            We'''ve sent a 6-digit code to your phone
                         </p>
                     </div>
                 </div>
@@ -118,7 +118,7 @@ const OwnerLoginForm = ({ onAuth, isOtpSent, isLoading }) => {
                                 // Resend OTP logic here
                             }}
                         >
-                            Didn't receive code? Resend
+                            Didn'''t receive code? Resend
                         </Button>
                     </div>
                 </form>
@@ -232,34 +232,64 @@ const OwnerRegisterForm = ({ onAuth, role, setAuthMode }) => {
 };
 
 
-const TenantLoginForm = ({ onAuth, role }) => {
+const TenantLoginForm = ({ onAuth, role, isLoading: parentIsLoading }) => {
     const [phone, setPhone] = useState("");
     const [tenantId, setTenantId] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [loginStep, setLoginStep] = useState('phone'); // 'phone' or 'tenantId'
     const { toast } = useToast();
 
-    const handleAuthAction = async (e) => {
+    const handlePhoneSubmit = async (e) => {
         e.preventDefault();
-        if (!phone || !tenantId) {
-            toast({ variant: "destructive", title: "Error", description: "Please enter your phone number and login ID." });
+        if (!phone.trim()) {
+            toast({ variant: "destructive", title: "Phone Number Required", description: "Please enter your 10-digit phone number." });
             return;
         }
+        if (!/^\d{10}$/.test(phone)) {
+            toast({ variant: "destructive", title: "Invalid Phone Number", description: "Please enter a valid 10-digit phone number." });
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const loginSuccess = await onAuth({ username: phone, tenantId, role }, 'login');
-            if (!loginSuccess) {
-                toast({ variant: "destructive", title: "Login Failed", description: "Invalid Phone Number or Login ID provided." });
+            const phoneExists = await onAuth({ username: phone }, 'tenant-phone-check');
+            if (phoneExists) {
+                setLoginStep('tenantId');
+            } else {
+                toast({ variant: "destructive", title: "Phone Number Not Found", description: "This phone number is not registered. Please contact your property owner." });
             }
         } catch (error) {
-             toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred." });
+            toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred while checking the phone number." });
         } finally {
             setIsLoading(false);
         }
     };
 
+    const handleLoginSubmit = async (e) => {
+        e.preventDefault();
+        if (!tenantId.trim()) {
+            toast({ variant: "destructive", title: "Login ID Required", description: "Please enter the login ID provided by your owner." });
+            return;
+        }
+        
+        setIsLoading(true);
+        try {
+            await onAuth({ username: phone, tenantId, role }, 'login');
+        } catch (error) {
+            // The main onAuth handler will show the toast for success/failure.
+            // This catch is for unexpected errors during the call itself.
+            toast({ variant: "destructive", title: "Login Error", description: "An unexpected error occurred during login." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // This form combines both steps, showing the relevant one based on `loginStep`
     return (
-        <form onSubmit={handleAuthAction} className="space-y-4">
-            <div className="space-y-2">
+        <form onSubmit={loginStep === 'phone' ? handlePhoneSubmit : handleLoginSubmit} className="space-y-4">
+            
+            {/* Phone Number Input - always in DOM for simplicity, but conditionally visible */}
+            <div className={cn("space-y-2", loginStep !== 'phone' && 'hidden')}>
                 <div className="relative">
                     <PhoneIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
@@ -268,36 +298,50 @@ const TenantLoginForm = ({ onAuth, role }) => {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         className="pl-10 py-6 text-base"
-                        required
+                        required={loginStep === 'phone'}
+                        disabled={isLoading || parentIsLoading}
+                        maxLength={10}
                     />
                 </div>
             </div>
-             <div className="space-y-2">
-                <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                        type="text"
-                        placeholder="Enter your Login ID"
-                        value={tenantId}
-                        onChange={(e) => setTenantId(e.target.value)}
-                        className="pl-10 py-6 text-base"
-                        required
-                    />
+
+            {/* Tenant ID Input - shown only in the second step */}
+            {loginStep === 'tenantId' && (
+                <div className="space-y-2 animate-fade-in">
+                    <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Enter your Login ID"
+                            value={tenantId}
+                            onChange={(e) => setTenantId(e.target.value)}
+                            className="pl-10 py-6 text-base"
+                            required={loginStep === 'tenantId'}
+                            disabled={isLoading || parentIsLoading}
+                            autoFocus
+                        />
+                    </div>
+                    <CardDescription className="text-center text-xs pt-2">
+                        Enter the Login ID provided by your property owner.
+                    </CardDescription>
                 </div>
-                 <CardDescription className="text-center text-xs pt-2">
-                    Your phone number is your username and the Login ID is your password, provided by the owner.
-                </CardDescription>
-            </div>
-            <Button type="submit" className="w-full py-6 text-lg btn-gradient-glow" disabled={isLoading}>
+            )}
+
+            {/* Submit Button - text and action changes based on step */}
+            <Button type="submit" className="w-full py-6 text-lg btn-gradient-glow" disabled={isLoading || parentIsLoading}>
                 {isLoading ? (
-                    <>
-                        <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
-                        Signing In...
-                    </>
+                    <><LoaderCircle className="mr-2 h-5 w-5 animate-spin" /> Working...</>
                 ) : (
-                    "Sign In as Tenant"
+                    loginStep === 'phone' ? "Verify Phone" : "Sign In as Tenant"
                 )}
             </Button>
+
+            {/* Back Button - shown only in the second step */}
+            {loginStep === 'tenantId' && (
+                <Button variant="link" className="w-full" onClick={() => setLoginStep('phone')} disabled={isLoading || parentIsLoading}>
+                    Back to enter phone number
+                </Button>
+            )}
         </form>
     );
 };
@@ -330,7 +374,7 @@ export default function Auth({ onAuth, isOtpSent, isLoading }) {
                 <>
                     <OwnerLoginForm onAuth={onAuth} isOtpSent={isOtpSent} isLoading={isLoading} />
                      <Button variant="link" className="w-full mt-4" onClick={() => setAuthMode('register')}>
-                        Don't have an account? Create one
+                        Don'''t have an account? Create one
                     </Button>
                 </>
             );
@@ -486,7 +530,7 @@ export default function Auth({ onAuth, isOtpSent, isLoading }) {
                     </div>
                     
                     {/* Form Content */}
-                    {role === 'owner' ? renderOwnerForm() : <TenantLoginForm onAuth={onAuth} role="tenant" />}
+                    {role === 'owner' ? renderOwnerForm() : <TenantLoginForm onAuth={onAuth} role="tenant" isLoading={isLoading} />}
                 </CardContent>
             </Card>
         </div>

@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, Wallet, Calendar, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,7 +69,12 @@ export default function Expenses({ appState, setAppState }) {
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
           <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" /> Add Expense</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Add New Expense</DialogTitle></DialogHeader>
+            <DialogHeader>
+                <DialogTitle>Add New Expense</DialogTitle>
+                <DialogDescription>
+                    Fill in the details for the new expense. This will be added to your expense history.
+                </DialogDescription>
+            </DialogHeader>
             <form onSubmit={handleAddExpense} className="space-y-4 py-4">
               <div>
                 <Label htmlFor="description">Description</Label>
@@ -149,5 +154,3 @@ export default function Expenses({ appState, setAppState }) {
     </div>
   );
 }
-
-    
